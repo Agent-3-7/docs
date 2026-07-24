@@ -120,6 +120,12 @@
   "seo": {
     "indexing": "all"
   },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_Caat4HHPrchwIsAA5I0P2HZHJY002wpuVF862YEaJsI",
+      "sessionRecording": false
+    }
+  },
   "redirects": [
     { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
