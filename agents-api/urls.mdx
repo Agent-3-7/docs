@@ -175,7 +175,7 @@ A wake can be refused or fail, and those answers use the same flat error shape a
 | Code | HTTP | When |
 | --- | --- | --- |
 | `instance_suspended` | 402 | The workspace balance is negative and the instance is suspended. No wake is attempted; top up and retry. See [Billing](/agents-api/billing#past-due-and-suspension). |
-| `wake_timeout` | 503 | The wake did not complete within about 60 seconds. The instance keeps waking in the background; retry. |
+| `wake_timeout` | 503 | The wake did not complete within about 3 minutes. The instance keeps waking in the background; retry. |
 | `wake_failed` | 503 | The wake failed. The instance stays `sleeping` and the next request tries again. |
 
 ## HTTP, SSE, and WebSocket
