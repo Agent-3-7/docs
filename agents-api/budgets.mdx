@@ -19,6 +19,8 @@ All money fields are integer micros: USD x 1,000,000, so \$1.00 is `1000000`. Ma
 
 ## The managed model
 
+Those credentials reach the agent as environment variables on the instance, which is what makes them work in a custom image too; [Managed services in your image](/agents-api/managed-services) is the reference for the endpoints and how to wire an agent to them.
+
 Managed LLM calls default to the Agent37 default model, a fast low-cost model we pick and keep current. You are not locked to it: the managed provider is OpenAI-compatible and lists every available paid model at its `/v1/models` endpoint, so the agent can switch from inside the session. In Hermes, run `/model` and pick from the Agent37 provider's list. In OpenClaw, run `openclaw models list` and set any `agent37/...` entry as the model. Whatever the model, billing stays the same: provider cost passed through with no markup, metered against the budget and wallet.
 
 ## How budgets work

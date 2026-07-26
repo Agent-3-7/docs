@@ -327,7 +327,7 @@ Registration copies the image into private storage before it returns, so `POST` 
 
 ## Build on the Hermes base image
 
-[`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
+[`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. The image itself wires no model and no integrations; you add your layers on top. It does not need to carry credentials, because the platform puts a working LLM endpoint and a Composio MCP server in every instance's environment — see [Managed services in your image](/agents-api/managed-services). Point your agent at those, or bring your own model keys.
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:latest
