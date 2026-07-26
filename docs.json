@@ -26,6 +26,7 @@
           "agents-api/examples",
           "agents-api/white-label",
           "agents-api/composio",
+          "agents-api/byo-model",
           "agents-api/chat-app",
           "agents-api/custom-image",
           "agents-api/managed-services",
