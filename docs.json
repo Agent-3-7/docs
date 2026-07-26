@@ -28,6 +28,7 @@
           "agents-api/composio",
           "agents-api/chat-app",
           "agents-api/custom-image",
+          "agents-api/managed-services",
           "agents-api/hermes-webhooks"
         ]
       },

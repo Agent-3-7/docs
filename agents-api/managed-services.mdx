@@ -1,0 +1,171 @@
+---
+title: "Managed services in your image"
+description: "Every instance gets a working LLM endpoint and a Composio MCP server from its environment. No API keys, no OAuth wiring, and it works in a fully custom image."
+---
+
+Every Agent37 instance boots with credentials already in its environment. Your image does not
+receive them from you, does not store them, and does not need to ask for them:
+
+| Variable | Value |
+| --- | --- |
+| `AGENT37_STARTER_TOKEN` | A per-instance token, `a37st.…` |
+| `AGENT37_STARTER_PROXY_URL` | `https://www.agent37.com/api/openclaw/starter-proxy/v1` |
+| `AGENT37_STARTER_MODEL_ID` | `default` |
+| `AGENT37_INSTANCE_ID` | This instance's id |
+| `AGENT37_AGENT_TYPE` | The template's agent runtime, when it has one |
+| `AGENT37_GATEWAY_PORT` | The port the bare instance URL routes to |
+| `AGENT37_RUNTIME_IMAGE_REF` | The image this container is running |
+
+That token opens two endpoints. **This applies to any image**, including one you built
+yourself from scratch: the platform injects these at container create, not the image.
+
+<Note>
+  Both endpoints live on `www.agent37.com`, **not** `api.agent37.com`. The API host serves only
+  `/v1*`, and a request to the wrong host returns a well-formed `404` that reads like a bad path
+  or a bad key. Use `$AGENT37_STARTER_PROXY_URL` rather than typing the host yourself.
+</Note>
+
+## A model
+
+An OpenAI-compatible endpoint with exactly two routes: `GET /v1/models` and
+`POST /v1/chat/completions`. Point any OpenAI-compatible client at it.
+
+```bash
+curl -sS "$AGENT37_STARTER_PROXY_URL/chat/completions" \
+  -H "Authorization: Bearer $AGENT37_STARTER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "model": "default", "messages": [{"role":"user","content":"hello"}] }'
+```
+
+`"default"` is a fast, low-cost model we pick and keep current. `GET /v1/models` lists every
+paid model you can name instead; it is free to call. Streaming works. Free models and models
+without tool support are rejected, because agents need tools.
+
+## Integrations
+
+A [Composio](https://composio.dev) MCP server, scoped to this instance's own entity, at
+`https://www.agent37.com/api/composio-mcp/instance` with the same bearer token. It speaks
+streamable HTTP.
+
+```bash
+curl -sS https://www.agent37.com/api/composio-mcp/instance \
+  -H "Authorization: Bearer $AGENT37_STARTER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+It exposes five meta-tools rather than hundreds of individual ones, so it costs very little
+context. The agent searches for what it needs, then executes it:
+
+| Tool | Billed |
+| --- | --- |
+| `COMPOSIO_SEARCH_TOOLS` | free |
+| `COMPOSIO_GET_TOOL_SCHEMAS` | free |
+| `COMPOSIO_MULTI_EXECUTE_TOOL` | one call per tool in the batch, capped at 50 |
+| `COMPOSIO_MANAGE_CONNECTIONS` | one call |
+| `COMPOSIO_WAIT_FOR_CONNECTIONS` | one call |
+
+<Tip>
+  `COMPOSIO_MANAGE_CONNECTIONS` lets the agent start its own OAuth connections from inside the
+  instance. Driving [the integrations API](/agents-api/integrations) from your backend is the
+  alternative, not the prerequisite.
+</Tip>
+
+<Warning>
+  `POST` and `DELETE` only. A `GET` returns `405` by design, because proxying the optional
+  server-push stream would hold one open connection per instance. Well-behaved MCP clients treat
+  `405` as "this server has no server-push stream" and carry on, but some probe the older SSE
+  transport and report the server as failed. If your client offers an explicit transport
+  setting, set it to streamable HTTP.
+</Warning>
+
+## Wiring an agent to both
+
+Two config blocks, using [pi](https://pi.dev) as the example. Neither contains a credential;
+both reference the environment variable instead:
+
+<CodeGroup>
+```json models.json
+{
+  "providers": {
+    "agent37": {
+      "baseUrl": "https://www.agent37.com/api/openclaw/starter-proxy/v1",
+      "apiKey": "$AGENT37_STARTER_TOKEN",
+      "api": "openai-completions",
+      "models": [{ "id": "default", "name": "Agent37 Managed", "contextWindow": 128000, "maxTokens": 8192 }]
+    }
+  }
+}
+```
+
+```json mcp.json
+{
+  "mcpServers": {
+    "composio": {
+      "type": "streamable-http",
+      "url": "https://www.agent37.com/api/composio-mcp/instance",
+      "headers": { "Authorization": "Bearer ${AGENT37_STARTER_TOKEN}" }
+    }
+  }
+}
+```
+</CodeGroup>
+
+A complete, runnable image doing exactly this lives at
+[agent37-platform/pi-agent-image](https://github.com/agent37-platform/pi-agent-image).
+
+<Warning>
+  **Reference the variable, never copy its value.** The token is reissued, and the previous one
+  revoked immediately, on create, start, restart, update, resize, migrate, and recovery. A config
+  written once with the literal token baked in keeps working until the first restart and then
+  fails with `401` forever, because your config file is on the persistent volume and survives the
+  rotation. If your agent cannot read env vars from its config, have the entrypoint rewrite that
+  file from `$AGENT37_STARTER_TOKEN` on **every** boot, unconditionally. Write-if-absent is the
+  bug.
+</Warning>
+
+## Budgets
+
+Both endpoints draw on the instance [budget](/agents-api/budgets) and then the workspace wallet.
+LLM calls are metered at provider cost with no markup; Composio tool calls at \$0.000114 each.
+Refusals are a `402`:
+
+```json
+{ "error": { "type": "instance_budget_exhausted", "message": "..." } }
+```
+
+`insufficient_balance` is the other `type`, meaning the workspace wallet is empty rather than
+the instance cap being reached.
+
+<Warning>
+  **An instance created without a budget has a cap of zero, and every managed call returns `402`.**
+  Pass one at create, or `PATCH /v1/instances/{id}/budget` with `monthly_cap_micros`. Agents often
+  surface this badly: a `402` from the model endpoint can look like a hang rather than an error.
+  If a new instance's agent does nothing, read `GET /v1/instances/{id}/budget` first.
+</Warning>
+
+## Filesystem rules for a custom image
+
+`/home/node` and `/home/linuxbrew` are persistent volumes bind-mounted over your image at
+runtime. The volume is created **empty**, and nothing is ever copied out of the image into it, so
+anything your image writes under those paths is unreachable from the running container.
+
+This catches people twice, because npm's default global prefix is under `/home/node`:
+
+```dockerfile
+RUN npm install -g my-agent                        # vanishes at boot
+RUN NPM_CONFIG_PREFIX=/usr/local npm install -g my-agent   # survives
+```
+
+Put binaries in `/usr/local`, and put config your agent reads at startup somewhere outside
+`/home` too, or have the entrypoint write it into the volume on every boot. Files your agent
+creates at runtime under `/home/node` persist normally across restarts and image updates.
+
+## Not using them
+
+Nothing obliges your image to touch either endpoint. To run on your own model, ignore the proxy
+variables and point your agent at your own provider, as in
+[Build a custom image](/agents-api/custom-image#bring-your-own-model-instead). To skip
+integrations, leave the MCP server out of your agent's config. Unused endpoints are never
+billed, because billing is per call.

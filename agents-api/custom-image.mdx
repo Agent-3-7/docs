@@ -22,7 +22,7 @@ This page is the walkthrough; [Templates → build on the Hermes base image](/ag
 
 ## 1. Choose a starting image
 
-To customize Hermes, build on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base). It includes Hermes, the gateway, Chromium, and the standard toolchain. This example adds a CLI and a skill:
+To customize Hermes, build on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base). It includes Hermes, the gateway, Chromium, and the standard toolchain. This example adds a CLI:
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:latest
@@ -30,11 +30,22 @@ FROM ghcr.io/agent37-platform/hermes-base:latest
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends your-cli \
  && rm -rf /var/lib/apt/lists/*
-COPY your-skill/ /usr/local/share/agent37/default-skills/your-skill/
 USER node
 ```
 
-Bake binaries into `/usr/local/bin`, skills into `/usr/local/share/agent37/default-skills/` (the entrypoint copies them to `~/.hermes/skills` at boot), and everything else into `/usr/local` or `/opt` — never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
+Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/opt` — never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
+
+<Note>
+  **Skills don't belong in the image.** Hermes reads them from `~/.hermes/skills`, which lives on the instance's persistent volume — anything the image writes there is masked. Install them into a running instance instead, over [exec](/agents-api/exec) or the [files API](/agents-api/files):
+
+  ```bash curl
+  curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
+    -H "Authorization: Bearer $AGENT37_API_KEY" -H "Content-Type: application/json" \
+    -d '{ "command": "mkdir -p ~/.hermes/skills/my-skill && echo '"'"'<base64 of SKILL.md>'"'"' | base64 -d > ~/.hermes/skills/my-skill/SKILL.md" }'
+  ```
+
+  An app that provisions agents does this once, right after create. The skill then persists across restarts and updates.
+</Note>
 
 You can also use an existing image or start from any base. Its main process must keep running. If it serves HTTP, bind it to `0.0.0.0` and note its listening port; you will pass that as `default_port` when you register the template. An image with no HTTP service can omit `default_port` and be driven through [exec](/agents-api/exec), but it still needs a long-running `ENTRYPOINT` or `CMD`.
 
@@ -134,9 +145,20 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
   If the instance comes up `failed` instead of `running`, read its [logs](/agents-api/logs). An entrypoint that exits, a missing binary, or a service that never listens on `default_port` are the usual causes. `exec` cannot help until the container is running.
 </Note>
 
-## 5. Bring your own model
+## 5. Give it a model
 
-`hermes-base` is clean: it boots with no LLM provider (standard Agent37 instances use Agent37's managed model; this base is for bringing your own). To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint — your own proxy, or a provider directly — by writing `~/.hermes/config.yaml` on the instance:
+`hermes-base` is clean: it boots with no LLM provider wired. That does not mean the instance has
+no model available. Every instance — including one running an image you built from scratch — gets
+a working OpenAI-compatible endpoint and a Composio MCP server in its environment, as
+`AGENT37_STARTER_TOKEN` and `AGENT37_STARTER_PROXY_URL`. Pointing your agent at those is the
+shortest path to a running agent, costs no setup, and meters to the instance
+[budget](/agents-api/budgets). [Managed services in your image](/agents-api/managed-services) is
+the reference, and [pi-agent-image](https://github.com/agent37-platform/pi-agent-image) is a
+complete image that does it in two config files with no credentials in either.
+
+### Bring your own model instead
+
+To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint — your own proxy, or a provider directly — by writing `~/.hermes/config.yaml` on the instance:
 
 ```yaml
 model:
@@ -162,7 +184,7 @@ Write the config over [exec](/agents-api/exec) or the instance terminal; it live
 
 Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after the template changes: re-run the [cloud build](#build-it-in-the-cloud) under the same name, or publish a **new registry tag** and [PATCH `image_ref`](/agents-api/templates#update-a-template). Every successful build and every changed `image_ref` increments the template's automatic `revision`; a re-build counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
 
-Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
+Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. Anything on the persistent volume — `~/.hermes/skills`, `~/.hermes/config.yaml`, the agent's files — survives that update untouched, so a changed skill needs the same [exec](/agents-api/exec) write again, not a rebuild.
 
 ## Troubleshooting
 
