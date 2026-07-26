@@ -150,7 +150,8 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
 `hermes-base` is clean: it boots with no LLM provider wired. That does not mean the instance has
 no model available. Every instance — including one running an image you built from scratch — gets
 a working OpenAI-compatible endpoint and a Composio MCP server in its environment, as
-`AGENT37_STARTER_TOKEN` and `AGENT37_STARTER_PROXY_URL`. Pointing your agent at those is the
+`AGENT37_MANAGED_TOKEN`, `AGENT37_LLM_PROXY_URL`, and `AGENT37_COMPOSIO_MCP_URL`. Pointing your
+agent at those is the
 shortest path to a running agent, costs no setup, and meters to the instance
 [budget](/agents-api/budgets). [Managed services in your image](/agents-api/managed-services) is
 the reference, and [pi-agent-image](https://github.com/agent37-platform/pi-agent-image) is a
