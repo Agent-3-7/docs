@@ -176,6 +176,8 @@ Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/
 
 Write the config over [exec](/agents-api/exec) or the instance terminal; it lives on the persistent volume, so it survives restarts. Then [send a message](/agents-api/chat) and the agent runs on your model.
 
+Want this as a finished app rather than a config file? [Use your own model](/agents-api/byo-model) is a forkable kit that does exactly this per agent — your key behind a proxy, a revocable token per instance, and per-agent spend caps.
+
 <Tip>
   Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` ([tags on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes)) — the full image wires the managed model — and pass a [budget](/agents-api/budgets) on create.
 </Tip>

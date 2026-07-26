@@ -1,0 +1,85 @@
+---
+title: "Use your own model"
+sidebarTitle: "Your own model"
+description: "Run Hermes on Agent37 with your own OpenRouter key — a forkable kit with an LLM proxy you host, a revocable token per instance, per-instance spend caps, and real per-instance cost tracking."
+---
+
+Every instance boots with a [managed model](/agents-api/managed-services): zero setup, and Agent37 meters the spend from your wallet against each instance's [budget](/agents-api/budgets). When you'd rather own the model layer — your `OPENROUTER_API_KEY`, your choice of models, your own per-user metering and limits — the **hermes-byo-model** kit is the supported path. It's a complete forkable app in which every Hermes turn runs on your OpenRouter account, through a proxy hosted in your own app.
+
+<Card title="agent37-platform/hermes-byo-model" icon="github" href="https://github.com/agent37-platform/hermes-byo-model" horizontal>
+  The full app, ready to fork: auth, workspaces, chat, files, a per-agent model budget with real spend, and the money proxy that enforces it. Next.js and Supabase, deploys to Vercel. MIT.
+</Card>
+
+## Managed model or your own?
+
+| | Managed (default) | Your own (this kit) |
+| --- | --- | --- |
+| Setup | None — built into every instance | Fork the kit, add your `OPENROUTER_API_KEY` |
+| Model choice | Agent37's managed catalog | Anything your OpenRouter key can reach — 300+ models |
+| Turn path | Instance → Agent37's starter credentials | Instance → an LLM proxy in your app → OpenRouter |
+| Spend | Billed from your wallet, capped by the instance [budget](/agents-api/budgets) | Billed by OpenRouter to you; free on Agent37's side apart from compute |
+| Limits | The instance budget returns `402` mid-chat | Your proxy decides — the kit caps each agent per month |
+| Cost data | [Usage endpoint](/agents-api/billing), per instance | Your own table: per agent, per model, per day |
+
+Compute is billed the same either way — an instance is a computer, whoever's model it calls.
+
+## How it works
+
+```text
+agent instance (Hermes on Agent37 Cloud)
+  └─ ~/.hermes/config.yaml → custom provider: https://your-app.com/api/llm/v1
+       api_key: orp_…   (a per-agent token, worthless anywhere else)
+        └─ your app: token → agent → month-to-date spend vs that agent's cap
+             402 when the agent is over budget; the agent says so in chat
+             forward to OpenRouter with your key, usage accounting on
+             read the real cost off the reply (SSE included) → Postgres
+                └─ OpenRouter → Claude / GPT / Kimi / Gemini / …
+```
+
+- **Your key stays home.** The instance holds only a revocable per-agent token; the OpenRouter key lives in your app's environment and never reaches an instance or the browser. Rotating a token is a button in the kit's Settings tab.
+- **Per-agent budgets, enforced before the call.** Each agent carries a monthly cap. The proxy checks month-to-date spend first and refuses with `402` when it's reached — the agent surfaces that as a plain message in chat rather than failing silently.
+- **Real cost, not estimates.** The proxy asks OpenRouter to include usage accounting and records the dollars it reports, per agent, per model, per day. That table is what you'd invoice your own users from.
+- **The clean base image.** The kit registers a workspace [template](/agents-api/templates) on Agent37's `hermes-base` image, which boots with no model provider at all — so the config the app writes is the only one the agent has. The stock `agent37-hermes` template re-wires the managed model at every boot, which would leave a second, Agent37-billed model sitting in the picker.
+
+<Note>
+  Nothing here is OpenRouter-specific on the Agent37 side. Hermes needs an OpenAI-compatible endpoint serving `GET /v1/models` and `POST /v1/chat/completions` — point the kit's proxy at any provider, or at your own inference, by changing one constant. OpenRouter is the default because one key reaches every major model.
+</Note>
+
+## Get started
+
+<Steps>
+  <Step title="Get your keys">
+    Three secrets, each behind a login: an `sk_live_` [API key](https://www.agent37.com/dashboard/cloud/api-keys) from a funded workspace (see [Billing](/agents-api/billing)), an `OPENROUTER_API_KEY` from [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) with credit on it, and a [Supabase access token](https://supabase.com/dashboard/account/tokens) — the kit provisions a free Supabase project for you.
+  </Step>
+
+  <Step title="Clone it">
+    ```bash
+    git clone https://github.com/agent37-platform/hermes-byo-model
+    cd hermes-byo-model
+    ```
+  </Step>
+
+  <Step title="Run setup">
+    The fastest path is agent-driven: open the folder in Claude Code or Codex and paste the setup prompt from the README. It asks for your three keys, provisions Supabase, and registers the agent template in your workspace.
+
+    By hand: `npm install`, then `npm run setup` twice — the first run creates `.env.local` and exits asking for the keys; paste them in and run it again — then `npm run templates:publish`.
+  </Step>
+
+  <Step title="Run it">
+    ```bash
+    npm run dev
+    ```
+
+    Open `http://localhost:3000`, sign up, and create an agent. Agents run on Agent37 Cloud and call your app for *every* turn, so the app needs a public URL: `npm run dev` opens a free cloudflared quick tunnel automatically (needs the `cloudflared` binary — `brew install cloudflared` — but no Cloudflare account), and in production it's just your deployed URL. Creating an agent without one is refused, rather than producing an agent with no way to think.
+  </Step>
+</Steps>
+
+The first turn takes a minute: a new agent is configured over [exec](/agents-api/exec) and restarted before it answers. After that, the agent's **Settings** tab shows what each conversation cost you within seconds of the reply.
+
+## What you get
+
+The kit is the [Agent37 Starter Kit](/agents-api/white-label) with the model layer swapped: the same multi-tenant dashboard — email sign-in, workspaces, instance management, native **Chat** and **Files** tabs — plus a per-agent model budget, live spend on your OpenRouter account, and a token you can rotate. The chat model picker lists every model your key can reach; a one-line allow-list in `src/config/models.ts` narrows that to the models you approve, enforced in the proxy rather than trusted in the UI. Fork it, rebrand it (`src/config/branding.ts`), and ship it.
+
+<Note>
+  Happy with the managed model and just want the app? Use the [Starter Kit](/agents-api/white-label) — same experience on Agent37's built-in credentials, one key fewer. Want your own **integrations** instead of your own model? That's [Use your own Composio](/agents-api/composio).
+</Note>
