@@ -8,22 +8,17 @@ receive them from you, does not store them, and does not need to ask for them:
 
 | Variable | Value |
 | --- | --- |
-| `AGENT37_STARTER_TOKEN` | A per-instance token, `a37st.…` |
-| `AGENT37_STARTER_PROXY_URL` | `https://www.agent37.com/api/openclaw/starter-proxy/v1` |
-| `AGENT37_STARTER_MODEL_ID` | `default` |
+| `AGENT37_MANAGED_TOKEN` | A per-instance token |
+| `AGENT37_LLM_PROXY_URL` | `https://api.agent37.com/llm/v1` |
+| `AGENT37_COMPOSIO_MCP_URL` | `https://api.agent37.com/mcp/composio` |
 | `AGENT37_INSTANCE_ID` | This instance's id |
-| `AGENT37_AGENT_TYPE` | The template's agent runtime, when it has one |
-| `AGENT37_GATEWAY_PORT` | The port the bare instance URL routes to |
-| `AGENT37_RUNTIME_IMAGE_REF` | The image this container is running |
 
-That token opens two endpoints. **This applies to any image**, including one you built
+That token opens both endpoints. **This applies to any image**, including one you built
 yourself from scratch: the platform injects these at container create, not the image.
 
-<Note>
-  Both endpoints live on `www.agent37.com`, **not** `api.agent37.com`. The API host serves only
-  `/v1*`, and a request to the wrong host returns a well-formed `404` that reads like a bad path
-  or a bad key. Use `$AGENT37_STARTER_PROXY_URL` rather than typing the host yourself.
-</Note>
+Those four are the contract. A container's environment carries other `AGENT37_`-prefixed
+variables that are runtime internals — they change without notice, so build against the four
+above and nothing else.
 
 ## A model
 
@@ -31,8 +26,8 @@ An OpenAI-compatible endpoint with exactly two routes: `GET /v1/models` and
 `POST /v1/chat/completions`. Point any OpenAI-compatible client at it.
 
 ```bash
-curl -sS "$AGENT37_STARTER_PROXY_URL/chat/completions" \
-  -H "Authorization: Bearer $AGENT37_STARTER_TOKEN" \
+curl -sS "$AGENT37_LLM_PROXY_URL/chat/completions" \
+  -H "Authorization: Bearer $AGENT37_MANAGED_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "model": "default", "messages": [{"role":"user","content":"hello"}] }'
 ```
@@ -44,31 +39,26 @@ without tool support are rejected, because agents need tools.
 ## Integrations
 
 A [Composio](https://composio.dev) MCP server, scoped to this instance's own entity, at
-`https://www.agent37.com/api/composio-mcp/instance` with the same bearer token. It speaks
-streamable HTTP.
+`$AGENT37_COMPOSIO_MCP_URL` with the same bearer token. It speaks streamable HTTP.
 
 ```bash
-curl -sS https://www.agent37.com/api/composio-mcp/instance \
-  -H "Authorization: Bearer $AGENT37_STARTER_TOKEN" \
+curl -sS "$AGENT37_COMPOSIO_MCP_URL" \
+  -H "Authorization: Bearer $AGENT37_MANAGED_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-It exposes five meta-tools rather than hundreds of individual ones, so it costs very little
-context. The agent searches for what it needs, then executes it:
-
-| Tool | Billed |
-| --- | --- |
-| `COMPOSIO_SEARCH_TOOLS` | free |
-| `COMPOSIO_GET_TOOL_SCHEMAS` | free |
-| `COMPOSIO_MULTI_EXECUTE_TOOL` | one call per tool in the batch, capped at 50 |
-| `COMPOSIO_MANAGE_CONNECTIONS` | one call |
-| `COMPOSIO_WAIT_FOR_CONNECTIONS` | one call |
+It exposes a handful of meta-tools rather than hundreds of individual ones, so it costs very
+little context: the agent searches the catalog for what it needs, then executes it. The tool
+names and their behavior are Composio's surface, documented in
+[Composio's meta-tools reference](https://docs.composio.dev/reference/meta-tools/search_tools).
+Billing is ours and is simple: discovery (searching tools, fetching schemas) is free; executing
+tools and managing connections bills per tool call, with a batch execute capped at 50 calls.
 
 <Tip>
-  `COMPOSIO_MANAGE_CONNECTIONS` lets the agent start its own OAuth connections from inside the
-  instance. Driving [the integrations API](/agents-api/integrations) from your backend is the
+  The connection-management meta-tool lets the agent start its own OAuth connections from inside
+  the instance. Driving [the integrations API](/agents-api/integrations) from your backend is the
   alternative, not the prerequisite.
 </Tip>
 
@@ -90,8 +80,8 @@ both reference the environment variable instead:
 {
   "providers": {
     "agent37": {
-      "baseUrl": "https://www.agent37.com/api/openclaw/starter-proxy/v1",
-      "apiKey": "$AGENT37_STARTER_TOKEN",
+      "baseUrl": "https://api.agent37.com/llm/v1",
+      "apiKey": "$AGENT37_MANAGED_TOKEN",
       "api": "openai-completions",
       "models": [{ "id": "default", "name": "Agent37 Managed", "contextWindow": 128000, "maxTokens": 8192 }]
     }
@@ -104,8 +94,8 @@ both reference the environment variable instead:
   "mcpServers": {
     "composio": {
       "type": "streamable-http",
-      "url": "https://www.agent37.com/api/composio-mcp/instance",
-      "headers": { "Authorization": "Bearer ${AGENT37_STARTER_TOKEN}" }
+      "url": "https://api.agent37.com/mcp/composio",
+      "headers": { "Authorization": "Bearer ${AGENT37_MANAGED_TOKEN}" }
     }
   }
 }
@@ -121,7 +111,7 @@ A complete, runnable image doing exactly this lives at
   written once with the literal token baked in keeps working until the first restart and then
   fails with `401` forever, because your config file is on the persistent volume and survives the
   rotation. If your agent cannot read env vars from its config, have the entrypoint rewrite that
-  file from `$AGENT37_STARTER_TOKEN` on **every** boot, unconditionally. Write-if-absent is the
+  file from `$AGENT37_MANAGED_TOKEN` on **every** boot, unconditionally. Write-if-absent is the
   bug.
 </Warning>
 
