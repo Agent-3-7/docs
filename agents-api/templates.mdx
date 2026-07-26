@@ -230,7 +230,7 @@ curl -sS "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs?offset=0" \
 
 ### Build limits and failures
 
-Builds are free. One build runs at a time per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal like a registry import, though built images practically top out around 4 GB today; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
+Builds are free. One build runs at a time per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal, like a registry import; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
 
 Everything the build fetches — the `FROM` base image, anything `RUN` downloads — must be **publicly reachable**. There is no build-secret or private-registry-credential support yet; for a private base image, [contact support](mailto:support@agent37.com). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
 
