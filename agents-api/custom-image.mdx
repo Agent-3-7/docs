@@ -12,7 +12,7 @@ You can run an Agent37 instance from any Docker image. Register it as a [workspa
 
 A cloud build fetches everything itself — the `FROM` base image and anything `RUN` downloads — so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
 
-A complete example — a `Dockerfile`, an example skill, a registration script, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image), ready to copy into your own repo.
+A complete example — a `Dockerfile`, an example skill, a registration script, and a tiny LLM proxy — lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image). It is a GitHub template repo: click **Use this template**, edit the `Dockerfile`, run `./register.sh`.
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
 
@@ -93,7 +93,7 @@ docker tag my-agent:v1 ghcr.io/you/my-agent:v1
 docker push ghcr.io/you/my-agent:v1
 ```
 
-On GHCR, make the package public after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**). The [starter example](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image) includes a GitHub Actions workflow that builds `linux/amd64` and publishes immutable commit tags.
+On GHCR, make the package public after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**). The [example repo](https://github.com/agent37-platform/custom-agent-image) includes a GitHub Actions workflow that builds `linux/amd64` and publishes immutable commit tags.
 
 Register a specific tag, not `latest`:
 
@@ -150,7 +150,7 @@ custom_providers:
     model: "moonshotai/kimi-k2.7-code"
 ```
 
-Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). The example folder includes a ~40-line `llm-proxy/` that implements exactly these and forwards to OpenRouter with your key — a minimal pattern to deploy and adapt.
+Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). The [example repo](https://github.com/agent37-platform/custom-agent-image) includes a ~40-line `llm-proxy/` that implements exactly these and forwards to OpenRouter with your key — a minimal pattern to deploy and adapt.
 
 Write the config over [exec](/agents-api/exec) or the instance terminal; it lives on the persistent volume, so it survives restarts. Then [send a message](/agents-api/chat) and the agent runs on your model.
 
