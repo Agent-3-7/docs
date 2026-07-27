@@ -55,6 +55,20 @@ Nothing about ports is declared per instance:
 
 See [Instance and preview URLs](/agents-api/urls) for how routing and authentication work, and [Templates](/agents-api/templates) for `default_port` on your own images.
 
+## What an instance can reach
+
+Outbound, an instance reaches **the public internet and nothing else**. Package registries, third-party APIs, your own services and the managed LLM, search and Composio endpoints all work normally, with no allowlist to maintain.
+
+Private and internal networks are blocked, and connections to them fail immediately rather than hanging:
+
+- The host your instance runs on, and every other instance on it.
+- Private ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, plus carrier-grade NAT (`100.64.0.0/10`).
+- Link-local and cloud metadata (`169.254.0.0/16`), and multicast.
+
+Two practical consequences. Raw sockets are not available inside an instance, so `ping`, `traceroute` and `tcpdump` do not work — use a TCP or HTTP check instead if your image runs a connectivity self-test at boot. And if you need one instance to talk to another, go through its public URL, not a private address.
+
+Inbound, the only way in is the URLs above. Ports are not published to the internet directly; every request arrives through the edge, which authenticates it first.
+
 ## One wallet, per-instance caps
 
 Your workspace has exactly one pot of money: the wallet, funded by top-up from the [billing dashboard](https://www.agent37.com/dashboard/cloud/billing). Two things draw on it:
