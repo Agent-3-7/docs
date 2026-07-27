@@ -10,7 +10,7 @@ The command runs through `sh -c` as the image's default user, on the same box th
 ## Request
 
 <ParamField body="command" type="string" required>
-  The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work.
+  The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work. It must not contain a null byte, which no shell can carry: one returns `400 invalid_request`.
 </ParamField>
 
 <Note>
