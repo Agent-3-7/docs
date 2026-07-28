@@ -65,7 +65,9 @@ Private and internal networks are blocked, and connections to them fail immediat
 - Private ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, plus carrier-grade NAT (`100.64.0.0/10`).
 - Link-local and cloud metadata (`169.254.0.0/16`), and multicast.
 
-Two practical consequences. Raw sockets are not available inside an instance, so `ping`, `traceroute` and `tcpdump` do not work — use a TCP or HTTP check instead if your image runs a connectivity self-test at boot. And if you need one instance to talk to another, go through its public URL, not a private address.
+Two practical consequences. `ping` works against public addresses, but the gateway and anything private will not answer it, so a connectivity self-test that pings the gateway needs to become a TCP or HTTP check. And raw sockets are unavailable, so packet-level tools like `tcpdump` do not work at all.
+
+If you need one instance to talk to another, go through its public URL, not a private address.
 
 Inbound, the only way in is the URLs above. Ports are not published to the internet directly; every request arrives through the edge, which authenticates it first.
 
