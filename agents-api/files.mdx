@@ -1,16 +1,16 @@
 ---
 title: "Files"
-description: "Browse, read, write, move, delete, and download whole folders on the instance's disk — straight from the instance URL."
+description: "Browse, read, write, move, delete, and download whole folders on the instance's disk, straight from the instance URL."
 ---
 
 Files live on the instance's disk. A file's absolute `path` is its identity: there are no file ids, so the path you list is the path you read, write, move, or delete. You write a file with one call, attach the returned `path` to [a message](/agents-api/chat), and download anything the agent produces by path.
 
-The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` key as every other call, sent as the `X-Agent37-Key` header. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace — where it reads and writes by default — is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
+The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` key as every other call, sent as the `X-Agent37-Key` header. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace, where it reads and writes by default, is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
 
 These calls are not jailed to the workspace. The `sk_live_` key is the instance root: any path the key can reach on the instance's filesystem is fair game, with `~` expanding to the agent's home. Treat the key accordingly.
 
 <Note>
-  Every timestamp here is `modified`, the file's mtime in **epoch milliseconds** — the Agent API convention (the Hosting API uses seconds). It is a number, not an ISO string.
+  Every timestamp here is `modified`, the file's mtime in **epoch milliseconds**, following the Agent API convention (the Hosting API uses seconds). It is a number, not an ISO string.
 </Note>
 
 ## The file entry
@@ -103,7 +103,7 @@ const listing = await (await fetch(
   The parent directory's absolute path, or `null` at the filesystem root.
 </ResponseField>
 <ResponseField name="entries" type="array">
-  The directory's immediate children as [`FileEntry`](#the-file-entry) objects. One level only — this never recurses.
+  The directory's immediate children as [`FileEntry`](#the-file-entry) objects. One level only; this never recurses.
 </ResponseField>
 <ResponseField name="truncated" type="boolean">
   `true` when the directory holds more than 1000 entries; only the first 1000 (after sorting) are returned.
@@ -111,7 +111,7 @@ const listing = await (await fetch(
 
 ## Read, preview, or download a file
 
-`GET /v1/files/content?path=…` streams a file off the instance — typically one the agent told you it wrote. Any size; the 512 KB [exec](/agents-api/exec) output cap does not apply here. The `Content-Type` is set from the file extension.
+`GET /v1/files/content?path=…` streams a file off the instance, typically one the agent told you it wrote. Any size; the 512 KB [exec](/agents-api/exec) output cap does not apply here. The `Content-Type` is set from the file extension.
 
 <ParamField query="path" type="string" required>
   The file to read. Accepts absolute and `~/` paths. A missing or empty `path`, or a path that is not a regular file, returns `400 validation_error`; no file at the path returns `404 file_not_found`.
@@ -163,7 +163,7 @@ await fs.promises.writeFile(
 
 ## Download a folder
 
-`GET /v1/files/archive?path=…` streams a whole directory as a gzipped tar (`.tar.gz`) — the one call to pull a tree instead of walking it file by file. The archive is built on the fly and streamed, so any size works and the 512 KB [exec](/agents-api/exec) output cap does not apply. It unpacks to a single top-level folder named after the directory you packed.
+`GET /v1/files/archive?path=…` streams a whole directory as a gzipped tar (`.tar.gz`), the one call to pull a tree instead of walking it file by file. The archive is built on the fly and streamed, so any size works and the 512 KB [exec](/agents-api/exec) output cap does not apply. It unpacks to a single top-level folder named after the directory you packed.
 
 <ParamField query="path" type="string">
   The directory to archive. Optional; defaults to the agent's workspace, `/home/user/.agent37-gateway/workspace`. Accepts absolute and `~/` paths. No directory at the path returns `404 file_not_found`; a path that exists but is not a directory returns `400 not_a_directory`.
@@ -204,11 +204,11 @@ await fs.promises.writeFile("reports.tar.gz", Buffer.from(await res.arrayBuffer(
 ```
 </CodeGroup>
 
-Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart: to upload a tree, recreate it with per-file `PUT /v1/files/content` calls — each creates any missing parent directories (`mkdir -p`).
+Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart: to upload a tree, recreate it with per-file `PUT /v1/files/content` calls; each creates any missing parent directories (`mkdir -p`).
 
 ## Write a file
 
-`PUT /v1/files/content?path=…` writes the **raw request body** to `path` — this is the one call for create, overwrite, edit, and upload. It is not multipart: the body is the file's exact bytes. Missing parent directories are created (`mkdir -p`). The response is the written file's [`FileEntry`](#the-file-entry).
+`PUT /v1/files/content?path=…` writes the **raw request body** to `path`. This is the one call for create, overwrite, edit, and upload. It is not multipart: the body is the file's exact bytes. Missing parent directories are created (`mkdir -p`). The response is the written file's [`FileEntry`](#the-file-entry).
 
 <ParamField query="path" type="string" required>
   Where to write. Accepts absolute and `~/` paths; parent directories are created as needed. A missing or empty `path` returns `400 validation_error`.
@@ -219,7 +219,7 @@ Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart:
 </ParamField>
 
 <ParamField header="X-Expected-Mtime" type="integer">
-  Optional optimistic-concurrency guard, epoch milliseconds. When the file exists and its `modified` differs from this value, the write fails with `412 modified` — someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
+  Optional optimistic-concurrency guard, epoch milliseconds. When the file exists and its `modified` differs from this value, the write fails with `412 modified`, meaning someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
 </ParamField>
 
 <CodeGroup>
@@ -287,7 +287,7 @@ const entry = await (await fetch(
 
 ## Delete a file or directory
 
-`DELETE /v1/files?path=…` removes the path recursively and by force, like `rm -rf` — a directory and everything under it goes in one call. There is no confirmation and no guard, so a wrong `path` is unrecoverable. A symlink is removed itself, not followed. The response is `{ "ok": true }`.
+`DELETE /v1/files?path=…` removes the path recursively and by force, like `rm -rf`: a directory and everything under it goes in one call. There is no confirmation and no guard, so a wrong `path` is unrecoverable. A symlink is removed itself, not followed. The response is `{ "ok": true }`.
 
 <ParamField query="path" type="string" required>
   The file or directory to delete. Accepts absolute and `~/` paths. A missing or empty `path` returns `400 validation_error`.
@@ -331,7 +331,7 @@ await fetch(
 
 ## Rename or move a file
 
-`PATCH /v1/files` renames or moves a path with `fs.rename`, taking a body of `{ "from", "to" }`. The OS decides the edge cases — overwriting an existing `to`, moving into a directory, crossing devices — so behavior matches a shell `mv`. The response is the [`FileEntry`](#the-file-entry) of the new path.
+`PATCH /v1/files` renames or moves a path with `fs.rename`, taking a body of `{ "from", "to" }`. The OS decides the edge cases (overwriting an existing `to`, moving into a directory, crossing devices), so behavior matches a shell `mv`. The response is the [`FileEntry`](#the-file-entry) of the new path.
 
 <ParamField body="from" type="string" required>
   The current path. Accepts absolute and `~/` paths. Empty returns `400 validation_error`.
@@ -444,4 +444,4 @@ The common cycle is write, attach, fetch:
 
 1. `PUT /v1/files/content?path=…` with the input bytes; keep the returned `path`.
 2. `POST /v1/responses` with your `input` and that path in `files`.
-3. When the agent replies that it wrote a file, `GET /v1/files/content?path=…` to fetch it — or `GET /v1/files` to browse what it left behind.
+3. When the agent replies that it wrote a file, `GET /v1/files/content?path=…` to fetch it, or `GET /v1/files` to browse what it left behind.

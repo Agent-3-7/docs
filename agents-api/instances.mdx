@@ -3,7 +3,7 @@ title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
 ---
 
-An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later — poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
+An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later. Poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
 
 Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances you can run at once is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
 
@@ -12,7 +12,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 `POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on its smallest shape, 2 vCPU / 4 GB.
 
 <ParamField body="template" type="string" default="agent37-hermes">
-  A template name. `agent37-hermes` (full Hermes, with browser and desktop) is the default; `agent37-hermes-small` (the lean image, no browser or desktop) and `agent37-openclaw` (OpenClaw, with a headless browser) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version) — a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`) — pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
+  A template name. `agent37-hermes` (full Hermes, with browser and desktop) is the default; `agent37-hermes-small` (the lean image, no browser or desktop) and `agent37-openclaw` (OpenClaw, with a headless browser) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
 <ParamField body="resources" type="object">
@@ -44,7 +44,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="public_ports" type="object[]">
-  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }` — for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
+  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
 </ParamField>
 
 ### Shapes and pricing
@@ -165,7 +165,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="url" type="string">
-  The bare instance URL, `https://{instanceId}.agent37.app`, where the agent's chat API lives (it routes to the template's `default_port`, `3737` unless declared otherwise). Every other port is reachable at `https://{instanceId}-{port}.agent37.app` — derivable, no declaration needed. Open any port in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls).
+  The bare instance URL, `https://{instanceId}.agent37.app`, where the agent's chat API lives (it routes to the template's `default_port`, `3737` unless declared otherwise). Every other port is reachable at `https://{instanceId}-{port}.agent37.app`, derivable with no declaration needed. Open any port in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls).
 </ResponseField>
 
 <ResponseField name="domain_urls" type="string[]">
@@ -173,7 +173,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="public_ports" type="object[]">
-  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, created }` — permanent unauthenticated URLs, empty unless you created some.
+  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, created }`: permanent unauthenticated URLs, empty unless you created some.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">
@@ -372,14 +372,14 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 `POST /v1/instances/{id}/update` pulls the template's image, resets the operating system layer to it, and preserves the data in `/home/node` and `/home/linuxbrew`. It is the one lifecycle call that discards changes outside those directories, which also makes it the clean-slate repair tool: use it to move an instance onto a newer version after a release (or after you point a workspace template at a new tag), or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts.
 
-The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-template-version) instance stays on its pin. The one accepted field, `template`, takes any template name: the same template with an `@<version>` — a published tag on a system template, a published revision number on a workspace template — pins that release (this works on an unpinned instance too, and pinning an earlier workspace revision is the rollback), the bare name clears the pin to follow latest, and a *different* template migrates the instance onto it. A template migration keeps the instance's id, URLs, public ports, and data, and the recreated container adopts the new template's image, default port, and agent type. It returns `400` if the instance's current size isn't offered by the target template (the 1 vCPU / 3 GB shape exists only on templates that support it, like `agent37-hermes-small`). Any other field returns `400`. The ack carries the resulting `status`, the applied `template` when one was passed, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-template-version) instance stays on its pin. The one accepted field, `template`, takes any template name: the same template with an `@<version>`, a published tag on a system template or a published revision number on a workspace template, pins that release (this works on an unpinned instance too, and pinning an earlier workspace revision is the rollback), the bare name clears the pin to follow latest, and a *different* template migrates the instance onto it. A template migration keeps the instance's id, URLs, public ports, and data, and the recreated container adopts the new template's image, default port, and agent type. It returns `400` if the instance's current size isn't offered by the target template (the 1 vCPU / 3 GB shape exists only on templates that support it, like `agent37-hermes-small`). Any other field returns `400`. The ack carries the resulting `status`, the applied `template` when one was passed, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..."
 # -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v2", "image_digest": "sha256:9b2e...c41f", "template_revision": 2 }
 
-# Set or move a version pin (or pass the bare name to clear it) — a system tag,
+# Set or move a version pin (or pass the bare name to clear it): a system tag,
 # or a workspace revision like '{ "template": "my-agent@1" }' to roll back:
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..." \
@@ -414,7 +414,7 @@ An instance with `auto_sleep: true` does not have to be up to be available. Once
 
 The wake guarantee is priced in: an auto-sleep instance bills its awake minutes at 4x the compute rate, because the platform keeps capacity for it wakeable on demand instead of sharing it. A mostly-idle instance still comes out well below the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$1.34 per month, versus \$4.94 always-on.
 
-Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start) — for a private sandbox with no ports, which receives no requests, that is the only wake path. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start); for a private sandbox with no ports, which receives no requests, that is the only wake path. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
 
 While asleep:
 

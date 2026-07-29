@@ -3,10 +3,10 @@ title: "Quickstart"
 description: "Create an agent and stream its first reply in two API calls."
 ---
 
-Agent37 Cloud gives every user their own hosted agent computer. Create an instance and Hermes comes back running at its own URL: it chats, streams, browses, runs tools, and keeps state between conversations — files, connected accounts, and memory stay on the agent until you delete it. You create the agent with one call, then talk to it with the next; you never touch a server.
+Agent37 Cloud gives every user their own hosted agent computer. Create an instance and Hermes comes back running at its own URL: it chats, streams, browses, runs tools, and keeps state between conversations. Files, connected accounts, and memory stay on the agent until you delete it. You create the agent with one call, then talk to it with the next; you never touch a server.
 
 <Note>
-  **Building with an AI coding agent?** Point it at **[llms-full.txt](https://www.agent37.com/docs/llms-full.txt)** — the entire API in one file — and it can scaffold a working client.
+  **Building with an AI coding agent?** Point it at **[llms-full.txt](https://www.agent37.com/docs/llms-full.txt)**, the entire API in one file, and it can scaffold a working client.
 </Note>
 
 **Three ways to build on Agent37:**
@@ -19,11 +19,11 @@ Agent37 Cloud gives every user their own hosted agent computer. Create an instan
     Wire the two API planes into your own app. Where most teams start.
   </Card>
   <Card title="Custom Docker image" icon="package" href="/agents-api/custom-image">
-    Extend Hermes or bring any Dockerfile — Agent37 builds the image in the cloud.
+    Extend Hermes or bring any Dockerfile; Agent37 builds the image in the cloud.
   </Card>
 </CardGroup>
 
-Those are the three most common starting points — [Build with Agent37](/agents-api/examples) has the full table of guides and forkable repos. The rest of this page is the API itself — create an instance and stream a reply in two calls.
+Those are the three most common starting points; [Build with Agent37](/agents-api/examples) has the full table of guides and forkable repos. The rest of this page is the API itself: create an instance and stream a reply in two calls.
 
 ![Agent37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
 
@@ -88,7 +88,7 @@ Those are the three most common starting points — [Build with Agent37](/agents
     ```
     </CodeGroup>
 
-    The `url` is the instance's own API: the instance id is the DNS label, so `ab12cd34ef` answers at `https://ab12cd34ef.agent37.app`. That is the address you talk to next. Any other port — the agent's dashboard, terminal, and files included — is reachable at `https://ab12cd34ef-{port}.agent37.app`; see [Instance and preview URLs](/agents-api/urls).
+    The `url` is the instance's own API: the instance id is the DNS label, so `ab12cd34ef` answers at `https://ab12cd34ef.agent37.app`. That is the address you talk to next. Any other port, including the agent's dashboard, terminal, and files, is reachable at `https://ab12cd34ef-{port}.agent37.app`; see [Instance and preview URLs](/agents-api/urls).
   </Step>
 
   <Step title="Send it a streamed message">

@@ -2,7 +2,7 @@
 # .git, .github, .claude, .agents, .idea, node_modules,
 # README.md, LICENSE.md, CHANGELOG.md, CONTRIBUTING.md
 
-# Agent guidance — internal, never published as pages
+# Agent guidance: internal, never published as pages
 AGENTS.md
 CLAUDE.md
 

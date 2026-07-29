@@ -5,7 +5,7 @@ description: "List, read, rename, and delete conversations on an instance, and s
 
 A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.
 
-The gateway keeps no session index of its own. The agent harness owns both the transcript and the list — Hermes' session store, OpenClaw's history — and the gateway projects them on read. So a session's fields are the harness's own, and a list or read always reflects the live state of that harness.
+The gateway keeps no session index of its own. The agent harness owns both the transcript and the list (Hermes' session store, OpenClaw's history), and the gateway projects them on read. So a session's fields are the harness's own, and a list or read always reflects the live state of that harness.
 
 Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
 
@@ -14,8 +14,8 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 | Method | Path | Returns |
 | --- | --- | --- |
 | `GET` | `/v1/sessions` | `200` `{ "agent": "...", "data": [...] }`, the harness's session list, newest first |
-| `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "active_response_id", "history" }` — the conversation's full transcript |
-| `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }` — rename a session (Hermes) |
+| `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "active_response_id", "history" }`, the conversation's full transcript |
+| `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }`, rename a session (Hermes) |
 | `DELETE` | `/v1/sessions/{id}` | `200` `{ "id": "...", "deleted": true }` |
 | `GET` | `/v1/models` | `200` `{ object, agent, default_model, default_provider, data }` |
 | `GET` | `/v1/health` | `200` `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }` |
@@ -27,7 +27,7 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 
 ## Choosing the harness
 
-Every read on this page takes an optional `?agent=` query — `hermes` or `openclaw` — that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`. On the data reads (`/v1/sessions`, `/v1/sessions/{id}`, `/v1/models`), targeting a harness the instance was not provisioned with is `503 agent_unavailable`; `/v1/health` instead reports an unreachable or unprovisioned harness as `healthy: false` with a `200`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
+Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`. On the data reads (`/v1/sessions`, `/v1/sessions/{id}`, `/v1/models`), targeting a harness the instance was not provisioned with is `503 agent_unavailable`; `/v1/health` instead reports an unreachable or unprovisioned harness as `healthy: false` with a `200`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
 
 ## The session object
 
@@ -37,7 +37,7 @@ There is no gateway-defined session shape. `GET /v1/sessions` passes each entry 
   The only field the gateway guarantees across harnesses. It is the session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
 </ResponseField>
 
-A Hermes session object also carries Hermes' own fields — `title`, `model`, `message_count`, `started_at`, `last_active`, and `preview` (see the example below). OpenClaw returns its own native fields. These come straight from the harness; the gateway does not normalize them, so field names, types, and timestamp units track the harness rather than this API (unlike a history message's `created_at`, which the gateway does normalize to epoch milliseconds). Read what you need by name; don't assume a field exists on every harness.
+A Hermes session object also carries Hermes' own fields: `title`, `model`, `message_count`, `started_at`, `last_active`, and `preview` (see the example below). OpenClaw returns its own native fields. These come straight from the harness; the gateway does not normalize them, so field names, types, and timestamp units track the harness rather than this API (unlike a history message's `created_at`, which the gateway does normalize to epoch milliseconds). Read what you need by name; don't assume a field exists on every harness.
 
 ## List sessions
 
@@ -85,10 +85,10 @@ const { data: sessions } = await (await fetch(
 
 ## Retrieve a session with history
 
-`GET /v1/sessions/{id}` returns `{ "id", "agent", "active_response_id", "history" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404` — the harness owns whether a session exists. Pass `?agent=` to pick the harness.
+`GET /v1/sessions/{id}` returns `{ "id", "agent", "active_response_id", "history" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404`, because the harness owns whether a session exists. Pass `?agent=` to pick the harness.
 
 <ResponseField name="active_response_id" type="string | null">
-  The id of the response currently running on the session, or `null` when it is idle. The harness writes a turn's messages at turn end, so while this is set the running turn is normally **not** in `history` yet — follow it live with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop). This is how a client that lost its state (page reload, new device) rediscovers a running turn and reattaches. Two timing edges: right at turn end, one read can briefly show the finished turn in `history` and its id still here — reattaching is still correct, the replay just ends immediately. And once it reads `null` the transcript is complete, with one exception: a cancelled OpenClaw turn is persisted by OpenClaw on its own schedule and can surface in `history` shortly after.
+  The id of the response currently running on the session, or `null` when it is idle. The harness writes a turn's messages at turn end, so while this is set the running turn is normally **not** in `history` yet. Follow it live with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop). This is how a client that lost its state (page reload, new device) rediscovers a running turn and reattaches. Two timing edges: right at turn end, one read can briefly show the finished turn in `history` and its id still here; reattaching is still correct, the replay just ends immediately. And once it reads `null` the transcript is complete, with one exception: a cancelled OpenClaw turn is persisted by OpenClaw on its own schedule and can surface in `history` shortly after.
 </ResponseField>
 
 Each entry in `history` is a message:
@@ -193,11 +193,11 @@ curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8
 
 ## One turn at a time
 
-A session runs one response at a time. Posting new input while a turn is in flight returns `409 session_busy`, normally with the running response's id in `error.response_id` — reattach to it with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop), cancel it with [`POST /v1/responses/{id}/cancel`](/agents-api/chat), or start the new input on another session. Two sessions on the same instance run independently.
+A session runs one response at a time. Posting new input while a turn is in flight returns `409 session_busy`, normally with the running response's id in `error.response_id`. Reattach to it with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop), cancel it with [`POST /v1/responses/{id}/cancel`](/agents-api/chat), or start the new input on another session. Two sessions on the same instance run independently.
 
 ## List models
 
-`GET /v1/models` lists the models a harness can run, in the OpenAI list shape — `{ "object": "list", "data": [...] }` — so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=` (e.g. `?agent=openclaw`), and the response echoes which `agent` answered. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=` (e.g. `?agent=openclaw`), and the response echoes which `agent` answered. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
 
 <ResponseField name="object" type="string">
   Always `"list"`.
@@ -218,13 +218,13 @@ A session runs one response at a time. Posting new input while a turn is in flig
 <ResponseField name="data" type="array">
   One entry per model. Each is an OpenAI-compatible model object plus a few additive fields a UI can group and label on:
 
-  - `id` — the model id. Pass it as `model` on a turn.
-  - `object` — always `"model"`.
-  - `created` — Unix seconds. We don't track per-model creation time, so this is a stable placeholder (`0`).
-  - `owned_by` — the upstream provider, e.g. `nous` or `anthropic`.
-  - `label` — a human-readable name.
-  - `source` — where the entry comes from: `current`, `catalog`, `custom`, or `alias`.
-  - `is_default` — `true` for the default model.
+  - `id`: the model id. Pass it as `model` on a turn.
+  - `object`: always `"model"`.
+  - `created`: Unix seconds. We don't track per-model creation time, so this is a stable placeholder (`0`).
+  - `owned_by`: the upstream provider, e.g. `nous` or `anthropic`.
+  - `label`: a human-readable name.
+  - `source`: where the entry comes from, one of `current`, `catalog`, `custom`, or `alias`.
+  - `is_default`: `true` for the default model.
 </ResponseField>
 
 <CodeGroup>

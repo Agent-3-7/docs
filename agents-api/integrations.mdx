@@ -1,21 +1,21 @@
 ---
 title: "App integrations"
-description: "Connect Gmail, Slack, Notion, and 250+ other apps to an instance over the Hosting API — managed Composio, one entity per instance, OAuth handled for you."
+description: "Connect Gmail, Slack, Notion, and 250+ other apps to an instance over the Hosting API: managed Composio, one entity per instance, OAuth handled for you."
 ---
 
-Every instance ships with managed [Composio](https://composio.dev) credentials, so the agent can call real apps — Gmail, Slack, Notion, GitHub, Google Calendar, and hundreds more — without you wiring up OAuth or holding any provider tokens. The agent can connect apps in conversation, but you can also drive the whole flow over the Hosting API: browse the catalog, start a connection, list what's connected, and disconnect.
+Every instance ships with managed [Composio](https://composio.dev) credentials, so the agent can call real apps (Gmail, Slack, Notion, GitHub, Google Calendar, and hundreds more) without you wiring up OAuth or holding any provider tokens. The agent can connect apps in conversation, but you can also drive the whole flow over the Hosting API: browse the catalog, start a connection, list what's connected, and disconnect.
 
 These endpoints live under each instance and operate on that instance's own Composio entity.
 
-Prefer to run integrations on **your own** Composio project — your API key, your users' connected accounts, your own metering? That's a different path: see [Use your own Composio](/agents-api/composio).
+Prefer to run integrations on **your own** Composio project, with your API key, your users' connected accounts, and your own metering? That's a different path: see [Use your own Composio](/agents-api/composio).
 
 <Info>
-  Browsing, connecting, listing, and disconnecting are **free** — they never debit the wallet or the budget. Only the agent's actual tool calls at runtime are metered, as managed Composio spend. See [Billing](#billing) below for the rate.
+  Browsing, connecting, listing, and disconnecting are **free**: they never debit the wallet or the budget. Only the agent's actual tool calls at runtime are metered, as managed Composio spend. See [Billing](#billing) below for the rate.
 </Info>
 
 ## The entity model
 
-Each instance maps to exactly one Composio entity, derived from your workspace and the instance id. You never construct or pass it — every endpoint here resolves it from the path instance. The practical consequences:
+Each instance maps to exactly one Composio entity, derived from your workspace and the instance id. You never construct or pass it; every endpoint here resolves it from the path instance. The practical consequences:
 
 - **Per-instance isolation.** Create one instance per end user (as in [Instances](/agents-api/instances)) and their connected accounts never leak across users.
 - **Multiple accounts of the same app.** Connect the same toolkit more than once to attach, say, two Gmail accounts to one instance. Each call returns a distinct `connectedAccountId`; the agent chooses between them per tool call by `connected_account_id`.
@@ -30,7 +30,7 @@ Each instance maps to exactly one Composio entity, derived from your workspace a
 | `GET` | `/v1/instances/{id}/integrations/connections` | `200` connected accounts |
 | `DELETE` | `/v1/instances/{id}/integrations/connections/{connectedAccountId}` | `200` deletion confirmation |
 
-All four require the `sk_live_` key, and the path instance must belong to your workspace — otherwise the call returns `404`.
+All four require the `sk_live_` key, and the path instance must belong to your workspace; otherwise the call returns `404`.
 
 ## Browse the app catalog
 
@@ -113,7 +113,7 @@ const page = await (await fetch(
 </ParamField>
 
 <ParamField body="callbackUrl" type="string">
-  Where to send the user after they grant access. If present it **must** be an absolute `https://` URL (anything else returns `400`). Omit it to use Composio's hosted "you can close this window" page — no callback needed.
+  Where to send the user after they grant access. If present it **must** be an absolute `https://` URL (anything else returns `400`). Omit it to use Composio's hosted "you can close this window" page, with no callback needed.
 </ParamField>
 
 The workspace's own Composio auth configs are applied automatically, so toolkits you've set up with custom OAuth credentials use them transparently.
@@ -175,14 +175,14 @@ Pass a `callbackUrl` to return the user to your own app after they grant access:
 
 ### Returning the user to your app
 
-`callbackUrl` is where Composio sends the user once they grant access — point it at a page in your own app to keep the flow seamless instead of leaving them on Composio's hosted page. Two things make the round-trip clean:
+`callbackUrl` is where Composio sends the user once they grant access. Point it at a page in your own app to keep the flow seamless instead of leaving them on Composio's hosted page. Two things make the round-trip clean:
 
-- **Carry your own context.** Add query params to the `callbackUrl` you pass, so the page they land on knows what just happened — for example `https://app.example.com/integrations/done?toolkit=gmail`. The user returns to your URL with those params intact; Composio doesn't add any of its own, so put everything you need to know there yourself.
-- **Confirm it took.** Landing back on your page means the user finished the OAuth screens, not that the account is live. Verify by calling [`GET /v1/instances/{id}/integrations/connections`](#list-connections) — match the `connectedAccountId` you got from `connect` and check its `status` is `ACTIVE`. A new connection can take a moment to settle, so poll briefly if it isn't active on the first read.
+- **Carry your own context.** Add query params to the `callbackUrl` you pass, so the page they land on knows what just happened, for example `https://app.example.com/integrations/done?toolkit=gmail`. The user returns to your URL with those params intact; Composio doesn't add any of its own, so put everything you need to know there yourself.
+- **Confirm it took.** Landing back on your page means the user finished the OAuth screens, not that the account is live. Verify by calling [`GET /v1/instances/{id}/integrations/connections`](#list-connections): match the `connectedAccountId` you got from `connect` and check its `status` is `ACTIVE`. A new connection can take a moment to settle, so poll briefly if it isn't active on the first read.
 
 ### Multiple accounts of one app
 
-Call `connect` again for the same toolkit to add a second account — a second Gmail inbox, say. You get a fresh `connectedAccountId`, and both stay attached to the instance. The agent picks which to use per tool call via `connected_account_id`, so "send from my work address" and "send from my personal address" both work on one instance.
+Call `connect` again for the same toolkit to add a second account, say a second Gmail inbox. You get a fresh `connectedAccountId`, and both stay attached to the instance. The agent picks which to use per tool call via `connected_account_id`, so "send from my work address" and "send from my personal address" both work on one instance.
 
 ### When a toolkit needs your own credentials
 
@@ -278,6 +278,6 @@ const res = await (await fetch(
 
 ## Billing
 
-Managing integrations is free — nothing on this page debits the budget or the wallet. Only the agent actually calling a connected app at runtime is metered, at \$0.000114 per call (114 micros), drawn from the instance [budget](/agents-api/budgets) and the workspace wallet like any other managed service.
+Managing integrations is free: nothing on this page debits the budget or the wallet. Only the agent actually calling a connected app at runtime is metered, at \$0.000114 per call (114 micros), drawn from the instance [budget](/agents-api/budgets) and the workspace wallet like any other managed service.
 
 That spend shows up in `GET /v1/instances/{id}/usage` under `by_integration.composio`. See [Managed services & budgets](/agents-api/budgets) for the rate, the usage shape, and the `402` refusal that keeps the instance running when the budget or wallet can't cover a tool call.
