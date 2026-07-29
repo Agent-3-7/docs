@@ -11,14 +11,14 @@ Every instance with a default port is reachable at `https://{instanceId}.agent37
 
 ## Every port has a URL
 
-Nothing is declared and nothing is looked up — both URL forms are derivable from the instance id alone:
+Nothing is declared and nothing is looked up; both URL forms are derivable from the instance id alone:
 
-- **Instance URL** — `https://{instanceId}.agent37.app`, the bare id. It routes to the template's [`default_port`](/agents-api/templates#register-a-workspace-template) (`3737`, the gateway, unless the template says otherwise), and it is the `url` field on every instance object.
-- **Preview URL** — `https://{instanceId}-{port}.agent37.app`, for **any** port, no registration needed. Preview URLs serve your own services plus the agent's built-in dashboard, terminal, and file browser.
+- **Instance URL**: `https://{instanceId}.agent37.app`, the bare id. It routes to the template's [`default_port`](/agents-api/templates#register-a-workspace-template) (`3737`, the gateway, unless the template says otherwise), and it is the `url` field on every instance object.
+- **Preview URL**: `https://{instanceId}-{port}.agent37.app`, for **any** port, no registration needed. Preview URLs serve your own services plus the agent's built-in dashboard, terminal, and file browser.
 
 A port nothing listens on answers with a transport error (`502`) rather than a `404`: the URL always routes; whether something serves is up to the instance.
 
-You can also serve these on your own domain: register a [custom domain](/agents-api/domains) and every URL here — the instance URL, preview URLs, and every public-port hostname — is mirrored at `{label}.yourdomain.com` with the same authentication.
+You can also serve these on your own domain: register a [custom domain](/agents-api/domains) and every URL here (the instance URL, preview URLs, and every public-port hostname) is mirrored at `{label}.yourdomain.com` with the same authentication.
 
 ### What `agent37-hermes` serves
 
@@ -49,7 +49,7 @@ A port accepts either credential, so you can reach the same port two ways:
 - **API key header** (`X-Agent37-Key`) for API calls.
 - **Signed URL** for handing a browser tab to a person.
 
-There is a third option for callers that can't send either — webhooks, most commonly: give the port its own permanent unauthenticated URL. See [Public ports](/agents-api/public-ports).
+There is a third option for callers that can't send either, webhooks most commonly: give the port its own permanent unauthenticated URL. See [Public ports](/agents-api/public-ports).
 
 ### API key header (programmatic)
 
@@ -113,7 +113,7 @@ console.log((await res.json()).url);
   The browser-openable URL. The first request promotes the token to a short-lived cookie, so the page's own assets and WebSocket connections authenticate without it.
 </ResponseField>
 <ResponseField name="domain_urls" type="string[]">
-  The same link on each of the workspace's active [custom domains](/agents-api/domains), oldest first — the token is bound to the label, not the host, so every entry works. Empty without one.
+  The same link on each of the workspace's active [custom domains](/agents-api/domains), oldest first. The token is bound to the label, not the host, so every entry works. Empty without one.
 </ResponseField>
 <ResponseField name="port" type="integer">
   The port the URL routes to.
@@ -163,7 +163,7 @@ console.log(await res.json());
 </CodeGroup>
 
 <Note>
-  Use the gateway's `/v1/health` for this, not `/health`: the bare path `/health` is reserved by the platform edge, which answers `{ "ok": true }` itself — without authentication and without reaching your instance.
+  Use the gateway's `/v1/health` for this, not `/health`: the bare path `/health` is reserved by the platform edge, which answers `{ "ok": true }` itself, without authentication and without reaching your instance.
 </Note>
 
 ## Sleeping instances wake on request

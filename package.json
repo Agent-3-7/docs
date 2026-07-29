@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "check:dashes": "grep -rn --include='*.mdx' --include='*.md' --include='docs.json' --exclude-dir=node_modules --exclude=AGENTS.md -- '—' . ; test $? -eq 1"
+  },
   "dependencies": {
     "mint": "^4.2.616"
   }

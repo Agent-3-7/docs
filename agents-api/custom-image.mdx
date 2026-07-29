@@ -10,9 +10,9 @@ You can run an Agent37 instance from any Docker image. Register it as a [workspa
 | Not built yet, local, or private | A [cloud build](#build-it-in-the-cloud) | A folder with the `Dockerfile` and the files it `COPY`s. Agent37 runs the build; no local Docker needed. |
 | In a public registry | `image_ref` | A fully qualified reference that Agent37 can pull anonymously during registration. |
 
-A cloud build fetches everything itself — the `FROM` base image and anything `RUN` downloads — so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
+A cloud build fetches everything itself, including the `FROM` base image and anything `RUN` downloads, so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
 
-A complete example lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image): a working agent app — auth, chat, files, integrations — whose agents run an image it builds itself from one `Dockerfile` and one skill folder. Click **Use this template**, edit the `Dockerfile`, run `npm run release:agent`.
+A complete example lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image): a working agent app (auth, chat, files, integrations) whose agents run an image it builds itself from one `Dockerfile` and one skill folder. Click **Use this template**, edit the `Dockerfile`, run `npm run release:agent`.
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
 
@@ -33,10 +33,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends your-cli \
 USER node
 ```
 
-Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/opt` — never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
+Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/opt`, never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
 
 <Note>
-  **Skills don't belong in the image.** Hermes reads them from `~/.hermes/skills`, which lives on the instance's persistent volume — anything the image writes there is masked. Install them into a running instance instead, over [exec](/agents-api/exec) or the [files API](/agents-api/files):
+  **Skills don't belong in the image.** Hermes reads them from `~/.hermes/skills`, which lives on the instance's persistent volume, so anything the image writes there is masked. Install them into a running instance instead, over [exec](/agents-api/exec) or the [files API](/agents-api/files):
 
   ```bash curl
   curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
@@ -55,7 +55,7 @@ You can also use an existing image or start from any base. Its main process must
 
 ## 2. Verify it locally (optional)
 
-You don't need Docker to publish — the [cloud build](#build-it-in-the-cloud) does the real build. If you have Docker, a local build is still the fastest way to test before publishing. Plain `docker build` stores the amd64 result in your local Docker, including on an Apple Silicon Mac:
+You don't need Docker to publish; the [cloud build](#build-it-in-the-cloud) does the real build. If you have Docker, a local build is still the fastest way to test before publishing. Plain `docker build` stores the amd64 result in your local Docker, including on an Apple Silicon Mac:
 
 ```bash
 docker build --platform linux/amd64 -t my-agent:v1 .
@@ -75,7 +75,7 @@ You have two ways to get the image to Agent37. Either way the resulting image is
 
 ### Build it in the cloud
 
-Use this path when the image isn't in a public registry — or doesn't exist yet. You upload a small **build context** (the `Dockerfile` and the files it `COPY`s), and Agent37 builds the image on its own infrastructure:
+Use this path when the image isn't in a public registry, or doesn't exist yet. You upload a small **build context** (the `Dockerfile` and the files it `COPY`s), and Agent37 builds the image on its own infrastructure:
 
 ```bash
 export AGENT37_API_KEY=sk_live_...
@@ -84,13 +84,13 @@ npx agent37 templates build . --name my-custom-agent
 
 What it does:
 
-- Packs the directory (default `.`; it must have `Dockerfile` at its root) into a gzipped context, excluding `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored). The context is capped at **100 MB** — it holds the Dockerfile's inputs, not the image, so it stays small.
-- **Everything else in the folder ships with the context** — a stray `.env` or key file included, and a `COPY . .` bakes it into the image. Check the folder, or add a `.dockerignore`, before you build.
+- Packs the directory (default `.`; it must have `Dockerfile` at its root) into a gzipped context, excluding `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored). The context is capped at **100 MB**; it holds the Dockerfile's inputs, not the image, so it stays small.
+- **Everything else in the folder ships with the context**, a stray `.env` or key file included, and a `COPY . .` bakes it into the image. Check the folder, or add a `.dockerignore`, before you build.
 - Builds the image on Agent37's infrastructure and **streams the live build log** to your terminal. On failure the command exits non-zero with the failing step visible.
 - Publishes the result as the workspace template. `--name` defaults to the folder name; `--default-port <port>` sets the template's default port. Re-building an existing name publishes a new template revision; **existing instances never change**.
 - Ctrl-C does not cancel the build; it continues server-side and still publishes on success.
 
-Builds are free, run one at a time per workspace, and time out after 45 minutes. The built image is capped at 8 GB decimal, like any template image; if you need more, [contact support](mailto:support@agent37.com). Everything the build fetches — the `FROM` base image, anything `RUN` downloads — must be publicly reachable; there is no build-secret or private-registry-credential support yet. A template published this way has an `image_digest` but no `image_ref`, because there is no public registry reference.
+Builds are free, run one at a time per workspace, and time out after 45 minutes. The built image is capped at 8 GB decimal, like any template image; if you need more, [contact support](mailto:support@agent37.com). Everything the build fetches, including the `FROM` base image and anything `RUN` downloads, must be publicly reachable; there is no build-secret or private-registry-credential support yet. A template published this way has an `image_digest` but no `image_ref`, because there is no public registry reference.
 
 To script the same flow without the CLI, see the raw contract in
 [Templates → build an image in the cloud](/agents-api/templates#build-an-image-in-the-cloud).
@@ -104,7 +104,7 @@ docker tag my-agent:v1 ghcr.io/you/my-agent:v1
 docker push ghcr.io/you/my-agent:v1
 ```
 
-On GHCR, make the package public after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**). In CI, GitHub's `ubuntu-latest` runner is already `linux/amd64`, and the built-in `GITHUB_TOKEN` can push to `ghcr.io/<owner>/<repo>` with `permissions: packages: write` — tag the image with the commit sha and register that, never `latest`.
+On GHCR, make the package public after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**). In CI, GitHub's `ubuntu-latest` runner is already `linux/amd64`, and the built-in `GITHUB_TOKEN` can push to `ghcr.io/<owner>/<repo>` with `permissions: packages: write`. Tag the image with the commit sha and register that, never `latest`.
 
 Register a specific tag, not `latest`:
 
@@ -148,7 +148,7 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
 ## 5. Give it a model
 
 `hermes-base` is clean: it boots with no LLM provider wired. That does not mean the instance has
-no model available. Every instance — including one running an image you built from scratch — gets
+no model available. Every instance, including one running an image you built from scratch, gets
 a working OpenAI-compatible endpoint and a Composio MCP server in its environment, as
 `AGENT37_MANAGED_TOKEN`, `AGENT37_LLM_PROXY_URL`, and `AGENT37_COMPOSIO_MCP_URL`. Pointing your
 agent at those is the
@@ -159,7 +159,7 @@ complete image that does it in two config files with no credentials in either.
 
 ### Bring your own model instead
 
-To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint — your own proxy, or a provider directly — by writing `~/.hermes/config.yaml` on the instance:
+To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint, your own proxy or a provider directly, by writing `~/.hermes/config.yaml` on the instance:
 
 ```yaml
 model:
@@ -173,30 +173,30 @@ custom_providers:
     model: "moonshotai/kimi-k2.7-code"
 ```
 
-Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). Anything that speaks them works — a provider directly, or a small proxy of your own that forwards to one with your key.
+Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). Anything that speaks them works: a provider directly, or a small proxy of your own that forwards to one with your key.
 
 Write the config over [exec](/agents-api/exec) or the instance terminal; it lives on the persistent volume, so it survives restarts. Then [send a message](/agents-api/chat) and the agent runs on your model.
 
-Want this as a finished app rather than a config file? [Use your own model](/agents-api/byo-model) is a forkable kit that does exactly this per agent — your key behind a proxy, a revocable token per instance, and per-agent spend caps.
+Want this as a finished app rather than a config file? [Use your own model](/agents-api/byo-model) is a forkable kit that does exactly this per agent: your key behind a proxy, a revocable token per instance, and per-agent spend caps.
 
 <Tip>
-  Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` ([tags on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes)) — the full image wires the managed model — and pass a [budget](/agents-api/budgets) on create.
+  Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` ([tags on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes)), which wires the managed model, and pass a [budget](/agents-api/budgets) on create.
 </Tip>
 
 ## Keep it current
 
 Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after the template changes: re-run the [cloud build](#build-it-in-the-cloud) under the same name, or publish a **new registry tag** and [PATCH `image_ref`](/agents-api/templates#update-a-template). Every successful build and every changed `image_ref` increments the template's automatic `revision`; a re-build counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
 
-Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. Anything on the persistent volume — `~/.hermes/skills`, `~/.hermes/config.yaml`, the agent's files — survives that update untouched, so a changed skill needs the same [exec](/agents-api/exec) write again, not a rebuild.
+Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. Anything on the persistent volume (`~/.hermes/skills`, `~/.hermes/config.yaml`, the agent's files) survives that update untouched, so a changed skill needs the same [exec](/agents-api/exec) write again, not a rebuild.
 
 ## Troubleshooting
 
 | Error or symptom | What to check |
 | --- | --- |
-| `build_failed` | A Dockerfile step failed. Read the build log — the CLI streams it, and `GET /v1/template-builds/{id}/logs` keeps it readable afterward; the failing step is at the end. |
+| `build_failed` | A Dockerfile step failed. Read the build log: the CLI streams it, and `GET /v1/template-builds/{id}/logs` keeps it readable afterward; the failing step is at the end. |
 | `build_conflict` | One build runs at a time per workspace. Wait for the running build to finish, then start again. |
 | `build_timeout` | The build ran past the 45-minute limit. Trim the Dockerfile's slowest steps and retry. |
 | `image_too_large` | The built or imported image is over 8 GB decimal. Remove build caches and unnecessary layers, or contact support. |
 | `invalid_request` for `image_ref` | Use a fully qualified tag and confirm the registry allows anonymous pulls. For an image that isn't public, run a [cloud build](#build-it-in-the-cloud) from its Dockerfile instead. |
-| `image_ingest_failed` | The private copy failed on Agent37's side. Retry once — re-run the build or the registration — then contact `support@agent37.com`. |
+| `image_ingest_failed` | The private copy failed on Agent37's side. Retry once by re-running the build or the registration, then contact `support@agent37.com`. |
 | Instance status is `failed` | Read [instance logs](/agents-api/logs); confirm the main process stays alive and `default_port` listens when set. |

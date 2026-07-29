@@ -64,7 +64,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
 
     Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 6 GB disk shape, billed from your workspace wallet (see [Billing](/agents-api/billing)). Each create uses the template's newest published image; for a fleet where every signup must get the identical image, pass a [version-pinned template](/agents-api/templates#pin-a-template-version) instead (`"template": "agent37-hermes@<tag>"`). The `budget.credit_micros` field grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
 
-    The call is synchronous and returns `201` with `status: "running"`: the instance's computer is up. The agent inside is still booting — usually seconds, but up to a few minutes on a cold host — so before the first message poll `GET /v1/health` on the instance URL until it answers with `"ok": true` (see [Health and version](/agents-api/sessions#health-and-version)). Store `inst.id` on the user row.
+    The call is synchronous and returns `201` with `status: "running"`: the instance's computer is up. The agent inside is still booting, usually seconds but up to a few minutes on a cold host, so before the first message poll `GET /v1/health` on the instance URL until it answers with `"ok": true` (see [Health and version](/agents-api/sessions#health-and-version)). Store `inst.id` on the user row.
   </Step>
 
   <Step title="A session per chat thread">
@@ -102,7 +102,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
     // timestamps are epoch milliseconds
     ```
 
-    On Hermes the list already carries a `title`, and you can set it with `PATCH /v1/sessions/{id}` (`{ "title": "..." }`) — the first user message usually makes a good default. Harnesses that do not store a title answer `405`; for those, keep titles in your own database keyed by `session_id`.
+    On Hermes the list already carries a `title`, and you can set it with `PATCH /v1/sessions/{id}` (`{ "title": "..." }`); the first user message usually makes a good default. Harnesses that do not store a title answer `405`; for those, keep titles in your own database keyed by `session_id`.
   </Step>
 
   <Step title="Load a thread when it opens">
@@ -116,7 +116,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
     // session.active_response_id: the running response's id, or null when idle
     ```
 
-    Render each message by `role` (`user`, `assistant`, or `system`). If `active_response_id` is set, a turn is still running and its messages are not in `history` yet — reattach with `GET /v1/responses/{id}/stream` to render it live (this is how a page reload mid-turn recovers the stream). When a user deletes a thread, `DELETE /v1/sessions/{id}` removes it; see [Sessions](/agents-api/sessions).
+    Render each message by `role` (`user`, `assistant`, or `system`). If `active_response_id` is set, a turn is still running and its messages are not in `history` yet, so reattach with `GET /v1/responses/{id}/stream` to render it live (this is how a page reload mid-turn recovers the stream). When a user deletes a thread, `DELETE /v1/sessions/{id}` removes it; see [Sessions](/agents-api/sessions).
   </Step>
 </Steps>
 
