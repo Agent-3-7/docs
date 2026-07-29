@@ -8,14 +8,20 @@ Guidance for AI agents working on the Agent37 docs. `CLAUDE.md` imports this fil
 - Pages are MDX files with YAML frontmatter; navigation, theme, and redirects live in `docs.json`.
 - Preview locally with `mint dev` (`npm i -g mint`); run `mint broken-links` before pushing. Publishing is automatic from `main` via the Mintlify app; there is no CI in this repo.
 - Mintlify auto-generates `llms.txt` and `llms-full.txt` at publish. **Customers' coding agents and our examples repo build clients straight from `…/docs/llms-full.txt`**. The reference is consumed as a spec, so precision beats prose.
-- For Mintlify product knowledge (components, configuration), install the Mintlify skill: `npx skills add https://mintlify.com/docs`.
+- For Mintlify product knowledge (components, configuration), the `mintlify`, `mintlify-docs`, and `mintlify-api` skills are already vendored in `.agents/skills/` and pinned in `skills-lock.json`. Refresh them with `npx skills add https://mintlify.com/docs`; there is nothing to install first.
 
 ## What the docs describe
 
-Two API planes, one `sk_live_` key; the navigation mirrors this split:
+Two API planes, one `sk_live_` key, and the reference nav mirrors that split:
 
-- **Hosting API** (`https://api.agent37.com/v1`) manages instances: instances, templates, exec, budgets, plus billing and errors reference. Takes the key as `Authorization: Bearer sk_live_...`.
+- **Hosting API** (`https://api.agent37.com/v1`) manages instances: instances, templates, urls, public-ports, domains, exec, logs, metrics, budgets, integrations. Takes the key as `Authorization: Bearer sk_live_...`.
 - **Agent API** (`https://{instanceId}.agent37.app/v1`) talks to one instance's agent: chat (responses), streaming, sessions, files. Takes the same key raw, no Bearer prefix, as `X-Agent37-Key: sk_live_...`; `Authorization` passes through to the software inside the instance. Every sample on this plane must use `X-Agent37-Key`, never `Authorization: Bearer`.
+
+Two more nav groups sit above the reference, and they are not API pages:
+
+- **Get started** (`index`, `concepts`) is the front door.
+- **Build with Agent37** (`examples`, `white-label`, `composio`, `byo-model`, `chat-app`, `custom-image`, `managed-services`, `hermes-webhooks`) is task-shaped: what you can build, each page usually pointing at a forkable repo. `examples` is the table that indexes the rest, so a new guide here needs a row added there. Keep these framed around the use case; the mechanics belong in the reference pages they link to.
+- **Reference** holds `billing` and `errors`, which span both planes.
 
 The API reference is **hand-authored MDX**; there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already).
 
@@ -49,7 +55,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 ## Content boundaries
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
-- The OpenClaw setup guides (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) are intentionally hidden from the nav but searchable; they serve existing OpenClaw customers. Don't surface them in the Agents API nav and don't delete them.
+- The OpenClaw setup guides are **gone from this repo** and are not coming back. All 18 hidden pages (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) moved to the blog in July 2026: they were B2C dashboard how-tos making up 22% of `llms-full.txt`, diluting the B2B spec coding agents consume. They live at `www.agent37.com/blog/*` now, and the `website` repo's `vercel.json` redirects every old `/docs/*` URL there. Don't recreate them here, and don't add a redirect for them in `docs.json` (the website handles it).
 - The system template catalog has three entries: `agent37-hermes`, `agent37-hermes-small`, and `agent37-openclaw`. Claude Code and Codex are coming soon; mention them as coming, never as available.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
