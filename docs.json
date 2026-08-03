@@ -24,10 +24,10 @@
         "group": "Build with Agent37",
         "pages": [
           "agents-api/examples",
-          "agents-api/white-label",
-          "agents-api/composio",
-          "agents-api/byo-model",
           "agents-api/chat-app",
+          "agents-api/white-label",
+          "agents-api/byo-model",
+          "agents-api/composio",
           "agents-api/custom-image",
           "agents-api/managed-services",
           "agents-api/hermes-webhooks"
