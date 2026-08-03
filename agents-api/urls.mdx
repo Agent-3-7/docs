@@ -122,7 +122,7 @@ console.log((await res.json()).url);
   Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)); any `port` from 1 to 65535 mints. An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. A missing or invalid port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)); any `port` from 1 to 65535 mints, except `22022`, the [SSH](/agents-api/ssh) port, which no credential-free URL can ever reach. An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. A missing or invalid port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 

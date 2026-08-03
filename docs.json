@@ -42,6 +42,7 @@
           "agents-api/public-ports",
           "agents-api/domains",
           "agents-api/exec",
+          "agents-api/ssh",
           "agents-api/logs",
           "agents-api/metrics",
           "agents-api/budgets",
