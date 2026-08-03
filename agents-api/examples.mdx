@@ -1,7 +1,7 @@
 ---
 title: "Examples"
 sidebarTitle: "Examples"
-description: "Everything you can build on the Agent37 API in one table: chat apps, a live agent desktop, your own Composio or model, custom images, and webhooks, most with a forkable repo."
+description: "Everything you can build on the Agent37 API in one table: chat apps, a branded dashboard, your own model or Composio, custom images, webhooks, and a live agent desktop, most with a forkable repo."
 ---
 
 Every guide in this section ends with something running, and almost every one comes with a public repo. There are two ways in:
@@ -9,16 +9,18 @@ Every guide in this section ends with something running, and almost every one co
 - **Fork a finished app** when you want to ship fast: point it at your `sk_live_` key, rebrand, deploy.
 - **Build it yourself** when you want the API pattern: the guides walk through the exact calls.
 
+The table runs simplest first: start with a chat UI, then a full product, then swap in your own model and integrations, then change the agent itself.
+
 | I want to… | Guide | Code |
 | --- | --- | --- |
-| Build my own chat UI: one always-on agent per user, streamed replies | [Build a chat app](/agents-api/chat-app) | [hermes-chat](https://github.com/agent37-platform/examples/tree/main/hermes-chat) |
-| Watch my agent's desktop **live**: a browser view of it clicking and typing, embeddable in my own app | [Build a custom image](/agents-api/custom-image) | [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) |
-| Ship a branded, multi-tenant agent dashboard, with chat, files, and integrations included | [White-label dashboard](/agents-api/white-label) | [starter-kit](https://github.com/agent37-platform/starter-kit) |
-| Change what the agent can do: my own tools, skills, and Docker image | [Build a custom image](/agents-api/custom-image) | [custom-agent-image](https://github.com/agent37-platform/custom-agent-image) |
+| Start simple: a chat UI on one always-on agent, replies streamed token by token | [Build a chat app](/agents-api/chat-app) | [hermes-chat](https://github.com/agent37-platform/examples/tree/main/hermes-chat) |
+| Ship a branded product: a multi-tenant dashboard with chat, files, app integrations, and one-click terminal access | [White-label dashboard](/agents-api/white-label) | [starter-kit](https://github.com/agent37-platform/starter-kit) |
+| Run agents on **my own model keys** instead of the managed LLM: my models, a token per agent, my spend caps | [Use your own model](/agents-api/byo-model) | [hermes-byo-model](https://github.com/agent37-platform/hermes-byo-model) |
 | Run integrations on **my own Composio**: my API key, my users' connected accounts, my metering | [Use your own Composio](/agents-api/composio) | [hermes-openclaw-composio](https://github.com/agent37-platform/hermes-openclaw-composio) |
-| Run agents on **my own OpenRouter key**: my models, a token per agent, my spend caps | [Use your own model](/agents-api/byo-model) | [hermes-byo-model](https://github.com/agent37-platform/hermes-byo-model) |
+| Give the agent my own tools and skills: a custom Docker image | [Build a custom image](/agents-api/custom-image) | [custom-agent-image](https://github.com/agent37-platform/custom-agent-image) |
 | Run a different agent entirely (the [pi](https://pi.dev) coding agent) on the managed LLM and Composio | [Managed services in your image](/agents-api/managed-services) | [pi-agent-image](https://github.com/agent37-platform/pi-agent-image) |
 | Give Hermes a public URL for webhook deliveries | [Hermes webhooks](/agents-api/hermes-webhooks) | None |
+| Watch my agent's desktop **live**: a browser view of it clicking and typing, embeddable in my own app | [Build a custom image](/agents-api/custom-image) | [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) |
 
 All the runnable folders above live in the [Agent37 Cookbook](https://github.com/agent37-platform/examples): example apps, ready-to-build custom images, and pointers to the full apps. New examples land there as they ship.
 
