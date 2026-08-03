@@ -12,7 +12,7 @@ You can run an Agent37 instance from any Docker image. Register it as a [workspa
 
 A cloud build fetches everything itself, including the `FROM` base image and anything `RUN` downloads, so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
 
-A complete example lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image): a working agent app (auth, chat, files, integrations) whose agents run an image it builds itself from one `Dockerfile` and one skill folder. Click **Use this template**, edit the `Dockerfile`, run `npm run release:agent`.
+A complete example lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image): a working agent app (auth, chat, files, integrations) whose agents run an image it builds itself from one `Dockerfile` and one skill folder. Click **Use this template**, edit the `Dockerfile`, run `npm run release:agent`. Smaller ready-to-build recipes — like [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop), a live desktop view of the agent's browser — live in the [Agent37 Cookbook](https://github.com/agent37-platform/examples).
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
 
