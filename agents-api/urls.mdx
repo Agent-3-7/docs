@@ -144,7 +144,7 @@ Rename the header on every request that targets an instance URL: the bare instan
 
 Leave the hosting API as it is. `https://api.agent37.com` keeps `Authorization: Bearer sk_live_...` and always will. One key, two planes: talking to us is `Authorization`, talking to your instance is `X-Agent37-Key`.
 
-You can ship the new header before you drop the old one. Sending both on the same request is safe, because `X-Agent37-Key` takes precedence whenever it is present. It is also the only credential consulted at that point, so an invalid value is a `401` with no fallback to `Authorization`.
+This is a straight swap, not a staged rollout: the old form keeps working until it is removed, so rename the header and ship. If a request does carry both, `X-Agent37-Key` is the one consulted, and an invalid value there is a `401` with no fallback to `Authorization`.
 
 The reason for the change is that `Authorization` belongs to your software. With the platform out of that header, an app running inside your instance receives its caller's own `Bearer` untouched, including agent software that does its own token auth, such as the Hermes dashboard on `9119`. The single exception is the platform key itself: an `Authorization` value beginning with `Bearer sk_live_` is stripped at the edge and never enters an instance, on any path.
 
