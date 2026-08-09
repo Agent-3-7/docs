@@ -21,7 +21,7 @@ ssh ab12cd34ef.agent37.app
 # >>> agent37 >>>
 Host *.agent37.app
   ProxyCommand agent37 tunnel %h
-  User root
+  User node
   ServerAliveInterval 60
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
@@ -31,7 +31,7 @@ Host *.agent37.app
 
 The block goes at the top of the file, because `ssh` keeps the first value it finds for each setting and a `Host *` stanza further down would otherwise override it. `IdentityFile` names the key `setup` registered, so the connection still works if your existing config sets `IdentitiesOnly yes`.
 
-That block is the whole client-side configuration. `ProxyCommand` is what carries the SSH stream (there is no port to dial directly), and `setup` writes it as the absolute path of the CLI that wrote it, so it works without a global install. Run under `npx` that path is inside the npx cache, so `npm install -g agent37` is the durable form; if `ssh` ever reports the `ProxyCommand` is missing, re-run `agent37 ssh setup`. `User root` is the login user on every instance. `ServerAliveInterval` keeps an idle session from being dropped. Host-key checking is off because an instance regenerates its host key when the platform relocates it, and the tunnel is already TLS plus your API key, so a pinned known-hosts entry would warn on a legitimate move.
+That block is the whole client-side configuration. `ProxyCommand` is what carries the SSH stream (there is no port to dial directly), and `setup` writes it as the absolute path of the CLI that wrote it, so it works without a global install. Run under `npx` that path is inside the npx cache, so `npm install -g agent37` is the durable form; if `ssh` ever reports the `ProxyCommand` is missing, re-run `agent37 ssh setup`. `User node` logs you in as the user the agent runs as, so the agent's CLI, config, and files are exactly where the session lands; `ssh root@<instance-id>.agent37.app` opens a root shell instead, on any instance. `ServerAliveInterval` keeps an idle session from being dropped. Host-key checking is off because an instance regenerates its host key when the platform relocates it, and the tunnel is already TLS plus your API key, so a pinned known-hosts entry would warn on a legitimate move.
 
 You do not have to touch `~/.ssh/config` at all. `agent37 ssh` connects with the same options inline, and takes plain `ssh` arguments after `--`:
 
@@ -182,8 +182,8 @@ Key changes reach running instances automatically, within about 25 seconds of th
 `scp` and `sftp` work as they do anywhere, recursive copies included:
 
 ```bash
-scp ./report.csv ab12cd34ef.agent37.app:/root/data/
-scp -r ab12cd34ef.agent37.app:/root/output ./output
+scp ./report.csv ab12cd34ef.agent37.app:data/
+scp -r ab12cd34ef.agent37.app:output ./output
 sftp ab12cd34ef.agent37.app
 ```
 
@@ -206,7 +206,8 @@ Revocation reaches running instances within about 25 seconds. It stops new login
 
 ## Rules and limits
 
-- **You log in as `root`.** Every instance has exactly one SSH user, and password authentication is off: keys only.
+- **You log in as `node`, the user the agent runs as.** That is what the config block's `User node` selects; `ssh root@<id>.agent37.app` is always accepted too. On a [custom template](/agents-api/custom-image), `node` works when your image has the account unlocked (`hermes-base` children do; otherwise add `usermod -p '*' node` — a Debian-locked account is refused even for key auth) — `root` works on any image. Password authentication is off: keys only.
+- **An instance on an image published before 9 August 2026 accepts `root` only.** Its `node` account predates the unlock above, so [update](/agents-api/instances#update) the instance once and `node` login works from then on.
 - **An instance created before 3 August 2026 needs one restart.** The SSH server is injected when the sandbox is built, and a sandbox that is already running cannot be given one, so [restart](/agents-api/instances#restart) that instance once (or [start](/agents-api/instances#start) it, if it is stopped). Its disk is preserved; anything held in memory is not. Instances created since then have SSH from first boot.
 - **A stopped instance refuses connections.** [Start](/agents-api/instances#start) it first. Connecting to a sleeping instance [wakes it](/agents-api/urls#sleeping-instances-wake-on-request), the same as any other request to its URLs.
 - **An open session counts as activity.** Keepalives keep bytes moving, so an [auto-sleep](/agents-api/instances#auto-sleep) instance stays awake for as long as you are connected, billing at the 4x awake rate. Close the session when you are done.
