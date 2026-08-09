@@ -61,7 +61,7 @@ X-Agent37-Key: sk_live_...
 
 The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without a credential gets `401`; a key from another workspace gets `404`.
 
-Requests are forwarded to your instance with `Authorization` untouched, so software inside the instance can run its own Bearer authentication; the platform never forwards an `sk_live_` key into an instance. Earlier versions authenticated instance URLs with `Authorization: Bearer sk_live_...`; that form is deprecated, still accepted for existing integrations, and is never forwarded to your instance. Use `X-Agent37-Key`.
+Requests are forwarded to your instance with `Authorization` untouched, so software inside the instance can run its own Bearer authentication; the platform never forwards an `sk_live_` key into an instance. Earlier versions authenticated instance URLs with `Authorization: Bearer sk_live_...` instead; that form still works but is deprecated. See [Migrating from `Authorization: Bearer`](#migrating-from-authorization-bearer).
 
 The key travels in a header. To open a preview URL like the dashboard, terminal, or file browser in a browser, mint a signed URL instead.
 
@@ -127,6 +127,26 @@ The instance must be running or sleeping (opening the link is exactly the kind o
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
 For user-facing browser access, mint the signed URL on demand and hand the link to the browser. The link is the only credential it carries, and it expires.
+
+### Migrating from `Authorization: Bearer`
+
+Earlier versions authenticated instance URLs with `Authorization: Bearer sk_live_...`. That form still works, but it is deprecated and will eventually stop being accepted; every workspace still sending it gets an email before that happens. It is the same key either way, so there is nothing to rotate, nothing to mint, and nothing to change in the dashboard.
+
+Rename the header on every request that targets an instance URL: the bare instance URL, preview URLs, and any [custom domain](/agents-api/domains) mirror of either.
+
+```diff
+  curl https://ab12cd34ef.agent37.app/v1/responses \
+-   -H "Authorization: Bearer sk_live_..." \
++   -H "X-Agent37-Key: sk_live_..." \
+    -H "Content-Type: application/json" \
+    -d '{ "input": "Research the top 3 EV makers, write a memo." }'
+```
+
+Leave the hosting API as it is. `https://api.agent37.com` keeps `Authorization: Bearer sk_live_...` and always will. One key, two planes: talking to us is `Authorization`, talking to your instance is `X-Agent37-Key`.
+
+You can ship the new header before you drop the old one. Sending both on the same request is safe, because `X-Agent37-Key` takes precedence whenever it is present. It is also the only credential consulted at that point, so an invalid value is a `401` with no fallback to `Authorization`.
+
+The reason for the change is that `Authorization` belongs to your software. With the platform out of that header, an app running inside your instance receives its caller's own `Bearer` untouched, including agent software that does its own token auth, such as the Hermes dashboard on `9119`. The single exception is the platform key itself: an `Authorization` value beginning with `Bearer sk_live_` is stripped at the edge and never enters an instance, on any path.
 
 ## Call an instance
 
