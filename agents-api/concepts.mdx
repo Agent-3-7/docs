@@ -14,6 +14,8 @@ Agent37 Cloud is two APIs that share one key, and three resources that nest.
 
 Both planes take the same `sk_live_` key, in two different headers. The hosting API takes `Authorization: Bearer sk_live_...`. Instance URLs take the raw key as `X-Agent37-Key: sk_live_...`, which leaves `Authorization` free for your own app running inside the instance. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the hosting API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the gateway running inside the instance.
 
+A key can carry an **IP allowlist**: up to 20 IPs or CIDR ranges (IPv4 and IPv6), edited per key in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys). A restricted key only works from those addresses, on both planes; anywhere else it gets `403 ip_not_allowed` with the observed IP in the message. An empty list means the key works from any IP. [Signed URLs](/agents-api/urls) and [public ports](/agents-api/public-ports) carry their own authorization and are not affected, so a browser link keeps working wherever it is opened.
+
 So you create an instance with one call to `api.agent37.com`, then talk to it at its own hostname:
 
 ```bash

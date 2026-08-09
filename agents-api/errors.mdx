@@ -34,6 +34,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
+| `ip_not_allowed` | 403 | The key is valid but the request came from an IP outside the key's [IP allowlist](/agents-api/concepts#two-planes-one-key). The `message` includes the observed IP. |
 | `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, a bad or unpublished [version pin](/agents-api/templates#pin-a-template-version), or a template migration target that doesn't offer the instance's current shape). |
 | `image_too_large` | 400 | A [template](/agents-api/templates)'s staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
@@ -88,6 +89,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | No credential, or a key or signed URL that did not verify. The `message` says which, and how to authenticate a browser request. |
+| `ip_not_allowed` | 403 | The key is valid but the request came from an IP outside the key's [IP allowlist](/agents-api/concepts#two-planes-one-key). The `message` includes the observed IP. Signed URLs are unaffected. |
 | `instance_suspended` | 402 | The instance is suspended for non-payment, so the request will not wake it. Top up the workspace wallet and retry. |
 | `not_found` | 404 | An instance URL that does not route: unknown, deleted, `failed`, or another workspace's. |
 | `container_unavailable` | 502 | The instance is not running, typically `stopped`. Start it and retry. |
