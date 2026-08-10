@@ -55,6 +55,7 @@ console.log((await res.json()).url);
   "url": "https://a1b2c3d4e5f6a7b8c9d0.agent37.app",
   "domain_urls": [],
   "prefix": null,
+  "label": null,
   "created": 1751928000
 }
 ```
@@ -72,6 +73,9 @@ console.log((await res.json()).url);
 </ResponseField>
 <ResponseField name="prefix" type="string | null">
   Echoes the prefix you chose, or `null` for a slug URL.
+</ResponseField>
+<ResponseField name="label" type="string | null">
+  A display name for the link, set with an optional `label` on create (up to 64 characters). Purely cosmetic: it appears in listings and the dashboard, and never affects the URL.
 </ResponseField>
 <ResponseField name="created" type="integer">
   Unix seconds when the entry was created.
@@ -95,6 +99,7 @@ Pass a `prefix` to get a deterministic hostname instead of a random slug:
   "url": "https://crm-ab12cd34ef.agent37.app",
   "domain_urls": [],
   "prefix": "crm",
+  "label": null,
   "created": 1751928000
 }
 ```
