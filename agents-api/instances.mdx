@@ -482,7 +482,7 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | Error | When |
 | --- | --- |
 | `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
-| `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$500 (email vishnu@agent37.com to raise it further). |
+| `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `403 shared_unavailable` | Create asks for `"type": "shared"` on a workspace it isn't enabled for. Nothing is provisioned; book the call in the message. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
