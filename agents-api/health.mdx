@@ -1,0 +1,25 @@
+---
+title: "Health & version"
+description: "Probe whether an instance's agent is ready, and read the gateway build."
+---
+
+Both endpoints live on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. See [Instance and preview URLs](/agents-api/urls).
+
+## Health
+
+`GET /v1/health` returns `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }`. `ok` is true whenever the gateway is up; `agent` is the harness that was probed, and `healthy` reports whether that harness behind it is reachable. By default it probes the instance's configured harness; pass `?agent=`, `hermes` or `openclaw`, to probe a specific one (an unknown value is `400 validation_error`, and an empty value is the same as omitting it). An unreachable or unprovisioned harness reports as `healthy: false` with a `200`. When Hermes is probed, the body also carries a `hermes` field mirroring `healthy`, kept for backward compatibility; other harnesses omit it. Use it as a readiness probe after [create or start](/agents-api/instances): the create call returns as soon as the instance's computer is up, while the agent inside is still booting.
+
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/health \
+  -H "X-Agent37-Key: sk_live_..."
+```
+
+```json response
+{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }
+```
+</CodeGroup>
+
+## Version
+
+`GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.3" }`.
