@@ -1,0 +1,94 @@
+---
+title: "Models"
+description: "List the models a harness can run, and set the model and provider per turn."
+---
+
+The model is the LLM a turn runs on; the agent harness is the software driving it. This page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. See [Instance and preview URLs](/agents-api/urls).
+
+## List models
+
+`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=`, `hermes` or `openclaw`, and the response echoes which `agent` answered. An unknown `?agent=` value is `400 validation_error`, omitting it (or sending it empty) targets the instance default, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+
+<ResponseField name="object" type="string">
+  Always `"list"`.
+</ResponseField>
+
+<ResponseField name="agent" type="string">
+  Which harness this list is for, `hermes` or `openclaw`.
+</ResponseField>
+
+<ResponseField name="default_model" type="string | null">
+  The model used when a turn does not name one.
+</ResponseField>
+
+<ResponseField name="default_provider" type="string | null">
+  The provider of the default model.
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  One entry per model. Each is an OpenAI-compatible model object plus a few additive fields a UI can group and label on:
+
+  - `id`: the model id. Pass it as `model` on a turn.
+  - `object`: always `"model"`.
+  - `created`: Unix seconds. We don't track per-model creation time, so this is a stable placeholder (`0`).
+  - `owned_by`: the upstream provider, e.g. `nous` or `anthropic`.
+  - `label`: a human-readable name.
+  - `source`: where the entry comes from, one of `current`, `catalog`, `custom`, or `alias`.
+  - `is_default`: `true` for the default model.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/models \
+  -H "X-Agent37-Key: sk_live_..."
+```
+
+```python python
+import requests
+
+models = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/models",
+    headers={"X-Agent37-Key": "sk_live_..."},
+).json()
+```
+
+```javascript node
+const models = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/models",
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
+)).json();
+```
+
+```json response
+{
+  "object": "list",
+  "agent": "hermes",
+  "default_model": "claude-sonnet-4-5",
+  "default_provider": "anthropic",
+  "data": [
+    {
+      "id": "claude-sonnet-4-5",
+      "object": "model",
+      "created": 0,
+      "owned_by": "anthropic",
+      "label": "Claude Sonnet 4.5",
+      "source": "catalog",
+      "is_default": true
+    },
+    {
+      "id": "gpt-5.2",
+      "object": "model",
+      "created": 0,
+      "owned_by": "openai",
+      "label": "GPT-5.2",
+      "source": "catalog",
+      "is_default": false
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Choosing a model per turn
+
+`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat): omit them to keep the session's current model, or send them to switch. A continuation that sets them updates the session's model for the turns that follow.

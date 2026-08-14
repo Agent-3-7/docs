@@ -12,7 +12,7 @@ The call is agentic by default: the agent can browse, run code, use a terminal, 
 Request bodies are capped at 2 MB; anything larger returns `413 payload_too_large`.
 
 <ParamField body="input" type="string" required>
-  The message or task, a plain string. There is no image field; to attach files, upload them first and list their paths in `files`. See [Sessions and models](/agents-api/sessions) for how history carries across turns.
+  The message or task, a plain string. There is no image field; to attach files, upload them first and list their paths in `files`. See [Sessions](/agents-api/sessions) for how history carries across turns.
 </ParamField>
 
 <ParamField body="files" type="string[]">
@@ -28,7 +28,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="model" type="string">
-  The LLM to run this turn on. Omit it to use the session's current model (the instance default on a new session). List what the instance can run with `GET /v1/models`; see [Sessions and models](/agents-api/sessions).
+  The LLM to run this turn on. Omit it to use the session's current model (the instance default on a new session). List what the instance can run with `GET /v1/models`; see [Models](/agents-api/models).
 </ParamField>
 
 <ParamField body="provider" type="string">
@@ -253,7 +253,7 @@ await fetch(`${BASE}/v1/responses`, {
   **One active turn per session.** A session runs one response at a time. Sending new input while one is in flight returns `409 session_busy`, normally with the running response's id in `error.response_id`. Use another session, reattach to the running turn, or cancel it first.
 </Note>
 
-To list a user's threads, read a thread's history, delete one, or pick a model, see [Sessions and models](/agents-api/sessions).
+To list a user's threads, read a thread's history, or delete one, see [Sessions](/agents-api/sessions). To pick a model per turn, see [Models](/agents-api/models).
 
 ## Follow up on a response
 

@@ -55,7 +55,9 @@
           "agents-api/chat",
           "agents-api/streaming",
           "agents-api/sessions",
-          "agents-api/files"
+          "agents-api/models",
+          "agents-api/files",
+          "agents-api/health"
         ]
       },
       {
