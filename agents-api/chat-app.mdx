@@ -15,34 +15,7 @@ The pattern is four calls: create one instance per user at signup, start one ses
   Two base URLs, one key, two headers: `https://api.agent37.com` manages instances and takes the key as `Authorization: Bearer`; each instance serves its own chat API at `https://{instanceId}.agent37.app` (the id is the hostname) and takes the same key as `X-Agent37-Key`, leaving `Authorization` free for your own app. See [Core concepts](/agents-api/concepts).
 </Info>
 
-The snippets below use a small shorthand client so the calls stay readable. `api` is the hosting API; `agentOf(id)` is one user's agent.
-
-```javascript node
-const HOSTING_HEADERS = {
-  Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
-  "Content-Type": "application/json",
-};
-
-const AGENT_HEADERS = {
-  "X-Agent37-Key": process.env.AGENT37_API_KEY,
-  "Content-Type": "application/json",
-};
-
-function makeClient(base, headers) {
-  return {
-    get: (path) => fetch(base + path, { headers }).then((r) => r.json()),
-    post: (path, body) =>
-      fetch(base + path, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body ?? {}),
-      }).then((r) => r.json()),
-  };
-}
-
-const api = makeClient("https://api.agent37.com", HOSTING_HEADERS);
-const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
-```
+Each step below shows the call twice: as bare curl, and as `fetch` where it lands in your app's server code. The curl tabs use `ab12cd34ef` as the instance id; your app reads the id it stored at signup.
 
 ## The shape of it
 
@@ -50,17 +23,37 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
   <Step title="One instance per user, on signup">
     When a user signs up, create one [instance](/agents-api/instances) for them, tagged with your own user id. That instance is their agent from then on.
 
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user": "u_882",
+        "name": "chat-u_882",
+        "budget": { "credit_micros": 1000000 }
+      }'
+    ```
+
     ```javascript node
-    const inst = await api.post("/v1/instances", {
-      user: "u_882",
-      name: "chat-u_882",
-      budget: { credit_micros: 1000000 },
-    });
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: "u_882",
+        name: "chat-u_882",
+        budget: { credit_micros: 1000000 },
+      }),
+    })).json();
 
     await db.users.update("u_882", { instanceId: inst.id });
     // inst.id is bare, e.g. "ab12cd34ef", and doubles as the hostname:
     // https://ab12cd34ef.agent37.app
     ```
+    </CodeGroup>
 
     Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 6 GB disk shape, billed from your workspace wallet (see [Billing](/agents-api/billing)). Each create uses the template's newest published image; for a fleet where every signup must get the identical image, pass a [version-pinned template](/agents-api/templates#pin-a-template-version) instead (`"template": "agent37-hermes@<tag>"`). The `budget.credit_micros` field grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
 
@@ -70,23 +63,60 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
   <Step title="A session per chat thread">
     Each thread is a session on the user's instance. Send the first turn to the instance URL with no `session_id`; the reply mints one. Store it on your thread row, then send `session_id` plus the new `input` on every later turn. The session keeps the full history, so you never resend a transcript.
 
-    ```javascript node
-    const agent = agentOf(user.instanceId);
+    <CodeGroup>
+    ```bash curl
+    # new thread: first turn, no session_id; the reply carries the new one
+    curl https://ab12cd34ef.agent37.app/v1/responses \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "input": "Research the top 3 EV makers, write a memo." }'
 
+    # later turns: session_id and the new input only
+    curl https://ab12cd34ef.agent37.app/v1/responses \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+        "input": "Make it shorter, add a quote."
+      }'
+    ```
+
+    ```javascript node
     // new thread: first turn, no session_id
-    const first = await agent.post("/v1/responses", {
-      input: "Research the top 3 EV makers, write a memo.",
-    });
+    const first = await (await fetch(
+      `https://${user.instanceId}.agent37.app/v1/responses`,
+      {
+        method: "POST",
+        headers: {
+          "X-Agent37-Key": process.env.AGENT37_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: "Research the top 3 EV makers, write a memo.",
+        }),
+      }
+    )).json();
     await db.threads.create({ userId: "u_882", sessionId: first.session_id });
     // first.session_id, e.g. "7f3e0b6c52a949d2b1c4a8e9d0f31726"
 
     // later turns: session_id and the new input only
-    const reply = await agent.post("/v1/responses", {
-      session_id: thread.sessionId,
-      input: "Make it shorter, add a quote.",
-    });
+    const reply = await (await fetch(
+      `https://${user.instanceId}.agent37.app/v1/responses`,
+      {
+        method: "POST",
+        headers: {
+          "X-Agent37-Key": process.env.AGENT37_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: thread.sessionId,
+          input: "Make it shorter, add a quote.",
+        }),
+      }
+    )).json();
     render(reply.output_text);
     ```
+    </CodeGroup>
 
     <Tip>
       Stream every reply so the UI fills in as the agent reasons, calls tools, and writes. Set `stream: true` and read the Server-Sent Events; see [Streaming](/agents-api/streaming) for the full event list and a client parser.
@@ -96,11 +126,21 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
   <Step title="List threads for the sidebar">
     `GET /v1/sessions` on the instance URL lists the harness's sessions, newest first, without history.
 
+    <CodeGroup>
+    ```bash curl
+    curl https://ab12cd34ef.agent37.app/v1/sessions \
+      -H "X-Agent37-Key: sk_live_..."
+    ```
+
     ```javascript node
-    const { agent, data } = await agentOf(user.instanceId).get("/v1/sessions");
+    const { agent, data } = await (await fetch(
+      `https://${user.instanceId}.agent37.app/v1/sessions`,
+      { headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY } }
+    )).json();
     // Hermes: [{ id, title, model, message_count, started_at, last_active, preview }]
     // timestamps are epoch milliseconds
     ```
+    </CodeGroup>
 
     On Hermes the list already carries a `title`, and you can set it with `PATCH /v1/sessions/{id}` (`{ "title": "..." }`); the first user message usually makes a good default. Harnesses that do not store a title answer `405`; for those, keep titles in your own database keyed by `session_id`.
   </Step>
@@ -108,13 +148,21 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
   <Step title="Load a thread when it opens">
     `GET /v1/sessions/{id}` returns the session with its full transcript in `history`, in order.
 
+    <CodeGroup>
+    ```bash curl
+    curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+      -H "X-Agent37-Key: sk_live_..."
+    ```
+
     ```javascript node
-    const session = await agentOf(user.instanceId).get(
-      `/v1/sessions/${thread.sessionId}`
-    );
+    const session = await (await fetch(
+      `https://${user.instanceId}.agent37.app/v1/sessions/${thread.sessionId}`,
+      { headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY } }
+    )).json();
     // session.history: [{ id, session_id, role, content, thinking?, created_at }]
     // session.active_response_id: the running response's id, or null when idle
     ```
+    </CodeGroup>
 
     Render each message by `role` (`user`, `assistant`, or `system`). If `active_response_id` is set, a turn is still running and its messages are not in `history` yet, so reattach with `GET /v1/responses/{id}/stream` to render it live (this is how a page reload mid-turn recovers the stream). When a user deletes a thread, `DELETE /v1/sessions/{id}` removes it; see [Sessions](/agents-api/sessions).
   </Step>
