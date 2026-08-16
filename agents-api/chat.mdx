@@ -255,6 +255,10 @@ await fetch(`${BASE}/v1/responses`, {
 
 To list a user's threads, read a thread's history, or delete one, see [Sessions](/agents-api/sessions). To pick a model per turn, see [Models](/agents-api/models).
 
+### When the agent needs a decision from you
+
+The agent asks by ending its turn: the response comes back `completed` with the question (and the options, if any) as `output_text`, and the turn is over. Answer by sending the reply as the next `input` on the same `session_id`. There is no in-turn prompt to answer while a response is `in_progress`, so a chat client needs nothing special: render the question like any other reply, and send the user's answer like any other message.
+
 ## Follow up on a response
 
 Every response has an id you can use after the call returns.
