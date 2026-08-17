@@ -16,7 +16,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="resources" type="object">
-  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. Every template offers the same three shapes below. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. Every template offers the same three shapes below. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, or 12 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="type" type="string" default="dedicated">
@@ -59,11 +59,11 @@ Creating an instance requires one day of compute at its running rate in your wor
 
 | cpu | memory | disk | Price at the default disk |
 | --- | --- | --- | --- |
-| 2 | 4 GB | 6-20 GB | \$4.94 per month (the default) |
-| 4 | 8 GB | 20-40 GB | \$10.60 per month |
-| 8 | 16 GB | 40-80 GB | \$21.20 per month |
+| 2 | 4 GB | 2-12 GB | \$4.76 per month (the default) |
+| 4 | 8 GB | 2-20 GB | \$9.34 per month |
+| 8 | 16 GB | 2-40 GB | \$18.68 per month |
 
-Disk above the range minimum adds \$0.09 per GB per month. Those are dedicated prices; the cost-optimized [`shared`](/agents-api/billing#dedicated-and-shared-instances) type bills the shape's monthly average instead. The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, or 4x it for an [auto-sleep](#auto-sleep) instance, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
+Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are dedicated prices; the cost-optimized [`shared`](/agents-api/billing#dedicated-and-shared-instances) type bills the shape's monthly average instead. The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, or 4x it for an [auto-sleep](#auto-sleep) instance, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
 
 ### Example
 
@@ -427,7 +427,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 ### Resize
 
-`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 15 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk rises to the new shape's minimum if it was below it). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
+`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk carries over unchanged). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
 
 The container is recreated with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. If its current host cannot fit the increase, the platform moves the instance to one that can; the resize then takes a couple of minutes while the data syncs over. Only when no host has room does it return `409 capacity_unavailable`, changing nothing.
 
@@ -436,14 +436,14 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "cpu": 4, "memory": 8 }'
-# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 20 } }
+# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 6 } }
 ```
 
 ## Auto-sleep
 
 An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs; a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
 
-The wake guarantee is priced in: an auto-sleep instance bills its awake minutes at 4x the compute rate, because the platform keeps capacity for it wakeable on demand instead of sharing it. A mostly-idle instance still comes out well below the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$1.34 per month, versus \$4.94 always-on.
+The wake guarantee is priced in: an auto-sleep instance bills its awake minutes at 4x the compute rate, because the platform keeps capacity for it wakeable on demand instead of sharing it. A mostly-idle instance still comes out well below the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$1.14 per month, versus \$4.76 always-on.
 
 Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start); for a private sandbox with no ports, which receives no requests, that is the only wake path. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
 
