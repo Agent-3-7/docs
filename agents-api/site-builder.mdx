@@ -1,0 +1,152 @@
+---
+title: "Build a website builder"
+description: "Let your users ask an agent for a website and get a live public URL back: the agent builds and serves the site on its instance, your server publishes it."
+---
+
+A user types "make me a landing page". The agent builds the site on its own always-on computer, serves it on a port, and the user gets a permanent `https://` link to open and share. This guide is the pattern end to end: one instance per user, a [public port](/agents-api/public-ports) for the site, and a small publish endpoint in your app that decides when a port goes public.
+
+<Card title="site-builder: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/site-builder" horizontal>
+  Everything on this page, runnable: create agents from a table, chat with starter prompts, and watch the agent hand back a live URL. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
+</Card>
+
+## Your server publishes, not the agent
+
+An agent cannot give itself a public URL: there is no agent-facing route for it, by design, so a prompt-injected agent can never expose a port on its own. Publishing is a Hosting API call with your `sk_live_` key, and that key lives only on your server. The flow that keeps everyone honest:
+
+1. At create, your server plants a **publish token** on the instance.
+2. The agent, briefed by your app, asks your server to publish, presenting the token.
+3. Your server verifies the token, applies its own policy, and creates the public port.
+
+Your endpoint is the consent gate. In a real product this is where quotas, port allowlists, and your own user auth go.
+
+<Steps>
+  <Step title="Create the instance with a publish token">
+    Two fields on [`POST /v1/instances`](/agents-api/instances#create-an-instance) carry the token: `env` puts the raw token in the container, where the agent's shell can read it, and `metadata` stores its SHA-256. `env` is write-only on the API and `metadata` is readable, so later your server can verify a presented token against the instance it claims to come from without keeping any state.
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user": "u_882",
+        "name": "site-u_882",
+        "budget": { "credit_micros": 1000000 },
+        "env": { "SITE_PUBLISH_TOKEN": "f3a9..." },
+        "metadata": { "site_publish_token_sha256": "9c1e..." }
+      }'
+    ```
+
+    ```javascript node
+    const token = crypto.randomBytes(24).toString("hex");
+    const hash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: "u_882",
+        name: "site-u_882",
+        budget: { credit_micros: 1000000 },
+        env: { SITE_PUBLISH_TOKEN: token },
+        metadata: { site_publish_token_sha256: hash },
+      }),
+    })).json();
+    ```
+    </CodeGroup>
+
+    `env` is set once at create and cannot change, so rotating a token means a new instance; the metadata hash, not the raw token, is what your server reads back later. The `budget.credit_micros` grants managed-LLM headroom so the agent can work from the first message (see [Budgets](/agents-api/budgets)).
+  </Step>
+
+  <Step title="Brief the agent">
+    The gateway has no system-prompt field on [`POST /v1/responses`](/agents-api/chat), so app context rides as a preamble your server prepends to the first turn of each session. The brief tells the agent where to build, how to serve, and how to publish:
+
+    ```text the brief, prepended server-side
+    App context (from the site-builder app, not the user):
+    You are the building agent behind a website-builder app. When the user asks for a
+    page, site, or web app:
+    1. Put the files in ~/site and serve them on port 8788. For static files:
+       mkdir -p ~/site && nohup python3 -m http.server 8788 --directory ~/site >/tmp/site.log 2>&1 &
+    2. Keep it running across restarts: append that exact nohup command to
+       ~/.agent37/hooks/post-restart.sh if it is not already there.
+    3. Publish it by calling the app (the env vars are set in your shell):
+       curl -s -X POST https://your-app.com/api/publish \
+         -H "Authorization: Bearer $SITE_PUBLISH_TOKEN" \
+         -H "Content-Type: application/json" \
+         -d "{\"instance_id\":\"$AGENT37_INSTANCE_ID\",\"port\":8788}"
+    4. The response has a "url" field. Give the user that URL verbatim, and tell them
+       the link is public: anyone who has it can open the site.
+    End of app context. The user message follows.
+    ```
+
+    Two variables do the addressing for you: `SITE_PUBLISH_TOKEN` is the one you planted, and `AGENT37_INSTANCE_ID` is set by the platform in every container, so the agent always knows which instance it is. Any unreserved port works; this guide fixes `8788` so the brief, the endpoint, and your UI all point at the same place.
+  </Step>
+
+  <Step title="Verify and publish in your endpoint">
+    When the agent calls, your server checks the token against the instance's metadata hash, then creates the [public port](/agents-api/public-ports). Treat `409 public_port_exists` as success and return the existing URL, so republishing is idempotent:
+
+    ```javascript node
+    app.post("/api/publish", async (req, res) => {
+      const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      const { instance_id, port } = req.body;
+
+      const inst = await (await fetch(
+        `https://api.agent37.com/v1/instances/${instance_id}`,
+        { headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` } }
+      )).json();
+      const hash = crypto.createHash("sha256").update(token).digest("hex");
+      if (inst.metadata?.site_publish_token_sha256 !== hash) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+
+      const created = await fetch(
+        `https://api.agent37.com/v1/instances/${instance_id}/public-ports`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ port, label: "user site" }),
+        }
+      );
+      if (created.ok) return res.json({ url: (await created.json()).url });
+
+      if (created.status === 409) {
+        const list = await (await fetch(
+          `https://api.agent37.com/v1/instances/${instance_id}/public-ports`,
+          { headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` } }
+        )).json();
+        const existing = list.data.find((entry) => entry.port === port);
+        if (existing) return res.json({ url: existing.url });
+      }
+      res.status(502).json({ error: "publish_failed" });
+    });
+    ```
+
+    The URL comes back once and never changes: with no `prefix` it is a random 20-character slug like `https://a1b2c3d4e5f6a7b8c9d0.agent37.app`, or pass `prefix` for a deterministic `{prefix}-{instanceId}` hostname. The agent must reach this endpoint over the internet, so in local dev give your server a public URL first (`cloudflared tunnel --url http://localhost:3000`).
+  </Step>
+
+  <Step title="Keep the site up">
+    The published URL routes to the port; whatever serves that port must survive the instance's lifecycle. Two habits from the brief cover it:
+
+    - **Files under `~`.** The home directory is the instance's persistent disk: it survives restarts, image updates, and recovery. Site edits in a later chat turn show up on the live URL with no republish.
+    - **Start command in `~/.agent37/hooks/post-restart.sh`.** The platform runs this hook on every boot of the instance, so the server comes back after a restart or an update. Commands in it must run in the background (`nohup ... &`); a foreground command stalls the boot.
+
+    Leave `auto_sleep` off (the default) for a site that should be up around the clock. An [auto-sleep](/agents-api/instances#auto-sleep) instance does wake when the URL is visited, but its awake minutes bill at 4x the compute rate, so steady traffic on a public URL makes sleep the wrong trade.
+  </Step>
+</Steps>
+
+## Serve it on your own domain
+
+Register a [custom domain](/agents-api/domains) once and every public-port URL is mirrored under it, still credential-free: `https://a1b2c3d4e5f6a7b8c9d0.your-domain.com`. Each entry's `domain_urls` field lists the mirrored URLs, ready to hand to the user instead of the `agent37.app` form.
+
+## Worth knowing
+
+- **Public means public.** Anyone with the URL reaches the port, and a request wakes a sleeping instance, which bills compute. Delete the entry (`DELETE /v1/instances/{id}/public-ports/{port}`) when a site should go away; see [rules and limits](/agents-api/public-ports#rules-and-limits) for the full list.
+- One URL per port and at most 20 public ports per instance, so one instance can host several sites on different ports.
+- The path `/health` is answered by the platform edge and never reaches the site.
+- Chat, streaming, and sessions are the standard [chat app](/agents-api/chat-app) wiring; this guide only adds the publish flow on top.

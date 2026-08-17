@@ -25,6 +25,7 @@
         "pages": [
           "agents-api/examples",
           "agents-api/chat-app",
+          "agents-api/site-builder",
           "agents-api/white-label",
           "agents-api/byo-model",
           "agents-api/composio",
