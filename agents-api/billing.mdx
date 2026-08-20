@@ -61,7 +61,7 @@ Most agents are idle most of the day. A **shared** instance still bursts to the 
 
 Start dedicated. Reach for **shared** when cost is what you are optimizing: pass `"type": "shared"` on [create](/agents-api/instances#create-an-instance). Shared is enabled per workspace; until yours is, create returns `403 shared_unavailable` with a link to set it up.
 
-An instance with [auto-sleep](/agents-api/instances#auto-sleep) on bills its awake minutes at **4x these compute rates**: the platform keeps its capacity wakeable on demand instead of sharing it. Time spent asleep bills disk alone, so a mostly-idle auto-sleep instance still comes out well below the always-on price. See [Per-minute metering](#per-minute-metering).
+[Auto-sleep](/agents-api/instances#auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
 
 ## Per-minute metering
 
@@ -69,11 +69,11 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 | Time spent | Meters at |
 | --- | --- |
-| `running`, and the transitional states (`starting`, `restarting`, `updating`, `stopping`) | The full compute rate. With [auto-sleep](/agents-api/instances#auto-sleep) on, 4x the compute rate. |
+| `running`, and the transitional states (`starting`, `restarting`, `updating`, `stopping`) | The full compute rate, with [auto-sleep](/agents-api/instances#auto-sleep) on or off. |
 | `sleeping` or `stopped` | The disk rate alone: \$0.09 per reserved GB per month. |
 | Parked in cold storage (long-idle sleepers moved off their host) | \$0.03 per GB per month, on the actual compressed bytes stored. |
 
-**Create checks a day, debits nothing.** `POST /v1/instances` requires the wallet to hold one day of the instance's running rate (for an `auto_sleep: true` create, one day at its 4x rate); below that, the create returns `402 insufficient_balance` and nothing is provisioned. Nothing is debited at create: the meter starts when the instance first reaches `running`, so a failed create costs nothing and there is nothing to refund.
+**Create checks a day, debits nothing.** `POST /v1/instances` requires the wallet to hold one day of the instance's running rate; below that, the create returns `402 insufficient_balance` and nothing is provisioned. Nothing is debited at create: the meter starts when the instance first reaches `running`, so a failed create costs nothing and there is nothing to refund.
 
 ```json
 {
@@ -86,7 +86,7 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 **Each instance meters on its own.** Every instance draws its own metered debits from the wallet; there is no extra balance reserve for running several at once. How many you can run at once is set by your [instance limit](#instance-limits), not by your balance.
 
-**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instances#auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance pays for its wake guarantee in its awake minutes, which bill at 4x the compute rate, but one that spends most of its life asleep still costs mostly its disk, about \$0.36 per month at the default 4 GB. Deleting an instance settles the final window and billing stops.
+**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instances#auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance that spends most of its life asleep costs mostly its disk, about \$0.36 per month at the default 4 GB. Deleting an instance settles the final window and billing stops.
 
 **The meter settles behind the scenes.** Whole minutes are billed at every lifecycle transition and at least hourly; you never see a per-minute charge on an API call. Each debit lands in the [ledger](#ledger-and-spend-visibility) as a metered compute entry.
 
