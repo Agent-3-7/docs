@@ -10,7 +10,7 @@ This works on an instance that runs Hermes: the `agent37-hermes` and `agent37-he
 
 Use **Connect via SSH** for this, not **Remote gateway**. Remote gateway mode needs Hermes's own gateway port (9119) reachable from your desktop, and that port is reserved for internal runtime services on an instance: it cannot be exposed as a [public port](/agents-api/public-ports), so the mode cannot work.
 
-<Frame caption="Hermes Desktop, Settings, Gateway: Connect via SSH pointed at an instance. Follow the field table below rather than the values in the shot: User should be node on the Hermes templates, and Identity file can stay blank.">
+<Frame caption="Hermes Desktop, Settings, Gateway: Connect via SSH pointed at an instance.">
   ![Hermes Desktop's Gateway settings with the Connect via SSH mode selected](/images/hermes-desktop-ssh-gateway.jpg)
 </Frame>
 
@@ -39,30 +39,21 @@ In Hermes Desktop, open **Settings**, then **Gateway**, and pick **Connect via S
 | Field | Value |
 | --- | --- |
 | Host | `<instance-id>.agent37.app` |
-| User | `node` (see [which user to log in as](#which-user-to-log-in-as)) |
+| User | `node`, the user the agent runs as. Desktop then comes up with your instance's own Hermes configuration. |
 | Port | Leave blank. The `~/.ssh/config` block carries the stream; there is no port to dial. |
 | Identity file | Leave blank. The key `ssh setup` registered applies through `~/.ssh/config`. |
 | Hermes path | Leave blank. It auto-detects `/usr/local/bin/hermes`, where the Hermes images install it. |
 
 Click **Test SSH**, then **Save and reconnect**. The app logs in, starts a Hermes process on the instance, and tunnels its dashboard back to your desktop.
 
-## Which user to log in as
-
-`node` is the user the agent runs as, and it is the login you want here: Hermes Desktop starts its Hermes in that user's home (`/home/node`), so it comes up with the instance's own Hermes configuration, including the managed model credentials, instead of a blank first-run setup.
-
-`root` also logs in, and it is the one login that works on **every** image, including [custom images](/agents-api/custom-image) that have no `node` user. But for this app it is the wrong default on the platform images: a root login starts Hermes with fresh state under `/root`, so the desktop comes up unconfigured, and files a root session writes into the agent's home can break the agent. Use `root` only when `node` is refused (below) or when your custom image runs its agent as root.
-
-One dated caveat, the reason `root` was originally required here: an instance still on an image published before 9 August 2026 refuses the `node` login (the account was locked to SSH back then). [Update](/agents-api/instances#update) the instance once and `node` works from then on.
-
 ## If Test SSH fails
 
-- **Authentication or connection errors.** Your key is not registered, your `sk_live_` key was revoked, or the instance is stopped. Re-run `agent37 ssh setup`, then check `ssh <instance-id>.agent37.app` from a terminal; [start](/agents-api/instances#start) the instance if it is stopped. An instance created before 3 August 2026 needs one [restart](/agents-api/instances#restart) before SSH works at all (the [rules and limits](/agents-api/ssh#rules-and-limits) have the details).
-- **`node` is refused but `root` works.** The image predates 9 August 2026. [Update](/agents-api/instances#update) the instance.
-- **Hermes not found, or the app says the remote Hermes is too old.** Desktop's SSH mode needs Hermes 0.20 or newer. Current Hermes images ship a newer version; an instance on an old image needs one [update](/agents-api/instances#update). On an `agent37-openclaw` instance there is no Hermes to find, and no update changes that.
+- **Authentication or connection errors.** Your key is not registered, your `sk_live_` key was revoked, or the instance is stopped. Re-run `agent37 ssh setup`, then check `ssh <instance-id>.agent37.app` from a terminal; [start](/agents-api/instances#start) the instance if it is stopped.
+- **The `node` login is refused, or the app says the remote Hermes is too old or missing.** The instance is on an old image: [update](/agents-api/instances#update) it once and reconnect.
 - **A passphrase-protected key hangs or fails.** The app runs `ssh` non-interactively, so it cannot prompt for a passphrase; load the key into `ssh-agent` first. The key `ssh setup` generates has no passphrase, so this only comes up with your own pre-existing key.
 
 ## Good to know
 
 - The desktop connection is an ordinary SSH session, so it counts as activity: connecting [wakes](/agents-api/urls#sleeping-instances-wake-on-request) a sleeping instance, and an [auto-sleep](/agents-api/instances#auto-sleep) instance stays awake for as long as the app is connected.
-- The app starts its own Hermes process for the desktop session. The managed agent and its [Agent API](/agents-api/chat) keep running untouched; logged in as `node`, both share the same Hermes home.
+- The app starts its own Hermes process for the desktop session. The managed agent and its [Agent API](/agents-api/chat) keep running untouched, and both share the same Hermes home.
 - For the app's own settings and features, use the [Hermes documentation](https://hermes-agent.nousresearch.com/docs).
