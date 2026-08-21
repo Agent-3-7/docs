@@ -31,7 +31,6 @@
           "agents-api/composio",
           "agents-api/custom-image",
           "agents-api/managed-services",
-          "agents-api/hermes-desktop",
           "agents-api/hermes-webhooks"
         ]
       },
@@ -66,7 +65,8 @@
         "group": "Reference",
         "pages": [
           "agents-api/billing",
-          "agents-api/errors"
+          "agents-api/errors",
+          "agents-api/hermes-desktop"
         ]
       }
     ]
