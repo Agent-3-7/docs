@@ -11,7 +11,7 @@ Every error uses a standard HTTP status code and returns a stable, machine-reada
 
 ## Hosting API errors
 
-Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `message`. There is no `param` or `hint` on this plane.
+Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, plus `detail` on the one error that has raw output worth showing: a failed create's `provisioning_failed` includes the tail of your container's console log, so a container that crashed on boot returns its own startup error. There is no `param` or `hint` on this plane.
 
 ```json
 {
@@ -27,6 +27,9 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 </ResponseField>
 <ResponseField name="error.message" type="string">
   A human-readable description. Safe to show, but do not parse it.
+</ResponseField>
+<ResponseField name="error.detail" type="string">
+  Optional. Raw failure output, present on a failed create's `provisioning_failed`: the last lines of your container's console log (host paths and IPs redacted, truncated to the final 2,000 characters). The same text persists on the instance as [`status_reason.detail`](/agents-api/instances#the-instance-object).
 </ResponseField>
 
 ### Hosting API codes
@@ -50,7 +53,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop` during the second or so while a sleep checkpoint is being written. Retry in a few seconds. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `image_ingest_failed` | 502 | Registering a [template](/agents-api/templates) failed while copying the image into private storage, for a reason on our side (not a bad image). Retry, or contact support@agent37.com. |
-| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Creates debit nothing, so a failed create costs nothing. |
+| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). A failed create carries `error.detail` with your container's console tail. Creates debit nothing, so a failed create costs nothing. |
 
 <Note>
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
