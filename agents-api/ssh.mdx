@@ -31,7 +31,7 @@ Host *.agent37.app
 
 The block goes at the top of the file, because `ssh` keeps the first value it finds for each setting and a `Host *` stanza further down would otherwise override it. `IdentityFile` names the key `setup` registered, so the connection still works if your existing config sets `IdentitiesOnly yes`.
 
-That block is the whole client-side configuration. `ProxyCommand` is what carries the SSH stream (there is no port to dial directly), and `setup` writes it as the absolute path of the CLI that wrote it, so it works without a global install. Run under `npx` that path is inside the npx cache, so `npm install -g agent37` is the durable form; if `ssh` ever reports the `ProxyCommand` is missing, re-run `agent37 ssh setup`. `User root` is the default login and works on any image. `ssh node@<instance-id>.agent37.app` logs in as the user the agent runs as instead, so the agent's CLI, config, and files are exactly where the session lands — use it (or set the `User` accordingly in your tool) when the point of the session is to drive the agent itself. `ServerAliveInterval` keeps an idle session from being dropped. Host-key checking is off because an instance regenerates its host key when the platform relocates it, and the tunnel is already TLS plus your API key, so a pinned known-hosts entry would warn on a legitimate move.
+That block is the whole client-side configuration. `ProxyCommand` is what carries the SSH stream (there is no port to dial directly), and `setup` writes it as the absolute path of the CLI that wrote it, so it works without a global install. Run under `npx` that path is inside the npx cache, so `npm install -g agent37` is the durable form; if `ssh` ever reports the `ProxyCommand` is missing, re-run `agent37 ssh setup`. `User root` is the default login and works on any image. `ssh node@<instance-id>.agent37.app` logs in as the user the agent runs as instead, so the agent's CLI, config, and files are exactly where the session lands. Use it (or set the `User` accordingly in your tool) when the point of the session is to drive the agent itself. `ServerAliveInterval` keeps an idle session from being dropped. Host-key checking is off because an instance regenerates its host key when the platform relocates it, and the tunnel is already TLS plus your API key, so a pinned known-hosts entry would warn on a legitimate move.
 
 You do not have to touch `~/.ssh/config` at all. `agent37 ssh` connects with the same options inline, and takes plain `ssh` arguments after `--`:
 
@@ -195,6 +195,8 @@ With the `~/.ssh/config` block in place, the instance is an ordinary SSH host to
 
 VS Code installs its remote server into the instance on the first connect, so that connect is the slow one and later ones come up fast. Any editor that speaks plain SSH works the same way.
 
+The Hermes Desktop app rides the same access: its **Connect via SSH** mode starts Hermes on the instance and tunnels it back to the app. [Connect Hermes Desktop](/agents-api/hermes-desktop) walks through it.
+
 ## Revoke
 
 Two ways, neither on a timer. There are no TTLs and no expiring sessions, so access lasts until you take it away.
@@ -206,7 +208,7 @@ Revocation reaches running instances within about 25 seconds. It stops new login
 
 ## Rules and limits
 
-- **You log in as `root` by default; `node` is also accepted.** `ssh node@<id>.agent37.app` lands as the user the agent runs as, with its config and files in place — prefer it when the session is about the agent, since files a root session writes into the agent's home can wedge the agent. On a [custom template](/agents-api/custom-image), a non-root login works when your image has that account unlocked (`hermes-base` children do; otherwise add `usermod -p '*' node` — a Debian-locked account is refused even for key auth) — `root` works on any image. Password authentication is off: keys only.
+- **You log in as `root` by default; `node` is also accepted.** `ssh node@<id>.agent37.app` lands as the user the agent runs as, with its config and files in place. Prefer it when the session is about the agent, since files a root session writes into the agent's home can wedge the agent. On a [custom template](/agents-api/custom-image), a non-root login works when your image has that account unlocked (`hermes-base` children do; otherwise add `usermod -p '*' node`, since a Debian-locked account is refused even for key auth); `root` works on any image. Password authentication is off: keys only.
 - **An instance on an image published before 9 August 2026 accepts `root` only.** Its `node` account predates the unlock above, so [update](/agents-api/instances#update) the instance once and `node` login works from then on.
 - **An instance created before 3 August 2026 needs one restart.** The SSH server is injected when the sandbox is built, and a sandbox that is already running cannot be given one, so [restart](/agents-api/instances#restart) that instance once (or [start](/agents-api/instances#start) it, if it is stopped). Its disk is preserved; anything held in memory is not. Instances created since then have SSH from first boot.
 - **A stopped instance refuses connections.** [Start](/agents-api/instances#start) it first. Connecting to a sleeping instance [wakes it](/agents-api/urls#sleeping-instances-wake-on-request), the same as any other request to its URLs.
