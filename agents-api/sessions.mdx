@@ -28,13 +28,27 @@ Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw
 
 ## The session object
 
-There is no gateway-defined session shape. `GET /v1/sessions` passes each entry through from the harness's own store, native fields untouched, so the exact fields depend on the harness and can evolve with it.
+Every session in the list is the same shape, whichever harness answers. The gateway projects each harness's native store into these five fields; a field the harness doesn't track is `null`.
 
 <ResponseField name="id" type="string">
-  The only field the gateway guarantees across harnesses. It is the session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
+  The session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
 </ResponseField>
 
-A Hermes session object also carries Hermes' own fields: `title`, `model`, `message_count`, `started_at`, `last_active`, and `preview` (see the example below). OpenClaw returns its own native fields. These come straight from the harness; the gateway does not normalize them, so field names, types, and timestamp units track the harness rather than this API (unlike a history message's `created_at`, which the gateway does normalize to epoch milliseconds). Read what you need by name; don't assume a field exists on every harness.
+<ResponseField name="title" type="string | null">
+  The harness's own editable title — exactly what [rename](#rename-a-session) writes. `null` until one is set.
+</ResponseField>
+
+<ResponseField name="last_active" type="number | null">
+  When the session last saw activity, epoch milliseconds.
+</ResponseField>
+
+<ResponseField name="message_count" type="number | null">
+  How many messages the session holds. Hermes tracks this; OpenClaw returns `null`.
+</ResponseField>
+
+<ResponseField name="preview" type="string | null">
+  A short excerpt of the conversation for list display. Hermes provides one; OpenClaw returns `null`.
+</ResponseField>
 
 ## List sessions
 
@@ -69,10 +83,8 @@ const { data: sessions } = await (await fetch(
     {
       "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
       "title": "EV makers memo",
-      "model": "claude-sonnet-4-5",
-      "message_count": 4,
-      "started_at": 1781049600000,
       "last_active": 1781049642000,
+      "message_count": 4,
       "preview": "Research the top 3 EV makers, write a memo."
     }
   ]
