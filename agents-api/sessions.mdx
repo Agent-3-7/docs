@@ -14,7 +14,7 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 | Method | Path | Returns |
 | --- | --- | --- |
 | `GET` | `/v1/sessions` | `200` `{ "agent": "...", "data": [...] }`, the harness's session list, newest first |
-| `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "active_response_id", "history" }`, the conversation's full transcript |
+| `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "active_response_id", "history", "context" }`, the conversation's full transcript |
 | `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }`, rename a session (Hermes) |
 | `DELETE` | `/v1/sessions/{id}` | `200` `{ "id": "...", "deleted": true }` |
 
@@ -34,7 +34,7 @@ There is no gateway-defined session shape. `GET /v1/sessions` passes each entry 
   The only field the gateway guarantees across harnesses. It is the session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
 </ResponseField>
 
-A Hermes session object also carries Hermes' own fields: `title`, `model`, `message_count`, `started_at`, `last_active`, and `preview` (see the example below). OpenClaw returns its own native fields. These come straight from the harness; the gateway does not normalize them, so field names, types, and timestamp units track the harness rather than this API (unlike a history message's `created_at`, which the gateway does normalize to epoch milliseconds). Read what you need by name; don't assume a field exists on every harness.
+Every row is the same shape regardless of harness: `{ id, title, last_active, message_count, preview }`. `title` is the harness's own editable title (what [rename](#rename-a-session) writes), `last_active` is epoch milliseconds, and fields a harness doesn't track are `null` (OpenClaw tracks no message count or preview).
 
 ## List sessions
 
@@ -69,10 +69,8 @@ const { data: sessions } = await (await fetch(
     {
       "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
       "title": "EV makers memo",
-      "model": "claude-sonnet-4-5",
-      "message_count": 4,
-      "started_at": 1781049600000,
       "last_active": 1781049642000,
+      "message_count": 4,
       "preview": "Research the top 3 EV makers, write a memo."
     }
   ]
@@ -82,10 +80,14 @@ const { data: sessions } = await (await fetch(
 
 ## Retrieve a session with history
 
-`GET /v1/sessions/{id}` returns `{ "id", "agent", "active_response_id", "history" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404`, because the harness owns whether a session exists. Pass `?agent=` to pick the harness.
+`GET /v1/sessions/{id}` returns `{ "id", "agent", "active_response_id", "history", "context" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404`, because the harness owns whether a session exists. Pass `?agent=` to pick the harness.
 
 <ResponseField name="active_response_id" type="string | null">
   The id of the response currently running on the session, or `null` when it is idle. The harness writes a turn's messages at turn end, so while this is set the running turn is normally **not** in `history` yet. Follow it live with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop). This is how a client that lost its state (page reload, new device) rediscovers a running turn and reattaches. Two timing edges: right at turn end, one read can briefly show the finished turn in `history` and its id still here; reattaching is still correct, the replay just ends immediately. And once it reads `null` the transcript is complete, with one exception: a cancelled OpenClaw turn is persisted by OpenClaw on its own schedule and can surface in `history` shortly after.
+</ResponseField>
+
+<ResponseField name="context" type="object | null">
+  The session's last reported context window: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` until a turn reports one.
 </ResponseField>
 
 Each entry in `history` is a message:
@@ -125,6 +127,7 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
   "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
   "agent": "hermes",
   "active_response_id": null,
+  "context": { "used_tokens": 22600, "window_tokens": 256000 },
   "history": [
     {
       "id": "hermes:7f3e0b6c52a949d2b1c4a8e9d0f31726:1",

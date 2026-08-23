@@ -91,6 +91,10 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
   Token counts and cost for the turn: `{ input_tokens, output_tokens, cost_usd }`. `cost_usd` is absent or `null` when the provider did not report a cost.
 </ResponseField>
 
+<ResponseField name="context" type="object | null">
+  The session's context window as of this turn: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` when the harness didn't report a measurement.
+</ResponseField>
+
 <ResponseField name="error" type="object | null">
   Set when the turn failed: `{ code, message, param?, hint? }`. See [Errors](/agents-api/errors).
 </ResponseField>
@@ -159,6 +163,7 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   "provider": null,
   "output_text": "Memo: the top 3 EV makers...",
   "usage": { "input_tokens": 1840, "output_tokens": 920, "cost_usd": 0.0137 },
+  "context": { "used_tokens": 22600, "window_tokens": 256000 },
   "error": null,
   "metadata": null,
   "created": 1781136000000
@@ -167,7 +172,7 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
 </CodeGroup>
 
 <Tip>
-  Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text` and `usage`. See [Streaming](/agents-api/streaming).
+  Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text`, `usage`, and `context`. See [Streaming](/agents-api/streaming).
 </Tip>
 
 ## Continue a conversation
