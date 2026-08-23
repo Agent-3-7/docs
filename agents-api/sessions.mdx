@@ -151,10 +151,10 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
 `PATCH /v1/sessions/{id}` sets a session's title, writing it straight into the harness's own store, and returns `{ "id", "agent", "renamed" }`. `renamed` is `false` when no session matched the id. Send the new title in the body:
 
 <ParamField body="title" type="string" required>
-  The new title. Cannot be empty. Hermes enforces a unique, length-capped title: a title already used by another session returns `409 title_conflict`, and an over-long one returns `400 validation_error`.
+  The new title. Cannot be empty. Titles are unique per harness: a title already used by another session returns `409 title_conflict`. Hermes also caps the length; an over-long one returns `400 validation_error`.
 </ParamField>
 
-Rename is only available on harnesses that natively store an editable title. Hermes supports it; a harness that does not returns `405 rename_unsupported`. Pass `?agent=` to pick the harness.
+Rename writes the harness's own editable title (OpenClaw stores it as the session label). Hermes and OpenClaw both support it; a harness that stores no editable title returns `405 rename_unsupported`. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
 ```bash curl
@@ -171,7 +171,7 @@ curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e
 
 ## Delete a session
 
-`DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. A harness with no delete route (OpenClaw) always returns `deleted: false` and keeps its copy. Pass `?agent=` to pick the harness.
+`DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
 ```bash curl
