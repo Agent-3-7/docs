@@ -83,7 +83,7 @@ Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same 
   A suggested next step, when one applies.
 </ResponseField>
 <ResponseField name="error.response_id" type="string">
-  On `session_busy`: the id of the response already running on the session. Reattach with `GET /v1/responses/{id}/stream` or cancel it. Treat it as optional; in a rare race the code arrives without it.
+  On `session_busy`: the id of the response already running on the session. Reattach with `GET /v1/responses/{id}/stream` or cancel it. Every `session_busy` from a current gateway carries it; treat it as optional only for instances still on an older gateway.
 </ResponseField>
 
 ### Transport errors
@@ -111,27 +111,27 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | Code | HTTP | When |
 | --- | --- | --- |
 | `validation_error` | 400 | A request field is invalid (`param` names it), the body is not valid JSON, or `mode` is `"goal"` (reserved). |
-| `not_a_directory` | 400 | `GET /v1/files?path=` points at something that isn't a directory. |
+| `not_a_directory` | 400 | `GET /v1/files?path=` or `GET /v1/files/archive?path=` points at something that isn't a directory. |
 | `response_not_found` | 404 | No response with that id. |
-| `file_not_found` | 404 | No file or directory at that path (`GET /v1/files`, `GET /v1/files/content`, `PATCH /v1/files`). |
+| `file_not_found` | 404 | No file or directory at that path (`GET /v1/files`, `GET /v1/files/archive`, `GET /v1/files/content`, `PATCH /v1/files`). |
 | `not_found` | 404 | Unknown route on the instance URL. |
 | `rename_unsupported` | 405 | `PATCH /v1/sessions/{id}` against a harness that cannot rename sessions (no native editable title). |
-| `session_busy` | 409 | A response is already running on this session; on the 409, `error.response_id` usually names it. |
+| `session_busy` | 409 | A response is already running on this session; `error.response_id` names it (absent only on instances still on an older gateway). |
 | `title_conflict` | 409 | `PATCH /v1/sessions/{id}`: the requested title is already used by another session. |
 | `file_exists` | 409 | `PUT /v1/files/content` with `overwrite=false` when a file already exists at the path. |
 | `modified` | 412 | `PUT /v1/files/content` with `X-Expected-Mtime` when the file changed since you read it (lost-update guard). |
 | `payload_too_large` | 413 | A JSON request body exceeds 2 MB. The raw-body `PUT /v1/files/content` write is exempt. |
 | `rate_limited` | 429 | An upstream provider rate limit. Back off and retry. |
 | `agent_error` | 502 | The agent backend failed without a more specific code. |
-| `agent_unavailable` | 503 | The targeted harness is not available on this instance: not provisioned here, or down. |
+| `agent_unavailable` | 503 | The targeted harness is not available on this instance: not provisioned here, or down. Hermes missing from an OpenClaw instance reports `hermes_not_found` at 503 instead. |
 | `internal_error` | 500 | Unexpected gateway error. |
 
 <Note>
-  The Agent API catalog is open-ended past this table. Failures inside the agent can surface provider-specific codes at 502 or 503 (for example a provider auth or quota error passes its raw code through, and an agent that is still warming up returns 503 with its own code). Treat any code you do not recognize as an agent-side failure: log it and show `message`.
+  The Agent API catalog is open-ended past this table. Failures inside the agent can surface provider-specific codes at 502 or 503 (for example a provider auth or quota error passes its raw code through, and an agent that is still warming up returns 503 with its own code). On OpenClaw a turn that ends in error carries OpenClaw's own error kind as `error.code` (`refusal`, `timeout`, `context_length`, or `unknown`); a provider rate limit arrives as `rate_limited`, and when OpenClaw reports no kind the code is `agent_error`. Treat any code you do not recognize as an agent-side failure: log it and show `message`.
 </Note>
 
 <Note>
-  Not every failed turn is an HTTP error. `POST /v1/responses` never rejects because the agent failed mid-run: the call returns 200 with `status: "failed"` and the same error object in the response body's `error` field, and streams end with a `response.failed` event. Check `status`, not just the HTTP code. See [Send a message](/agents-api/chat) and [Streaming](/agents-api/streaming).
+  Not every failed turn is an HTTP error. `POST /v1/responses` never rejects because the agent failed: once the turn is accepted, the call returns 200 with `status: "failed"` and the same error object in the response body's `error` field, and streams end with a `response.failed` event. `rate_limited`, `agent_error`, `agent_unavailable`, and the provider-specific codes reach you this way on a turn, never as their HTTP status; the statuses in the table apply when the same failure hits a session or model call. Check `status`, not just the HTTP code. See [Send a message](/agents-api/chat) and [Streaming](/agents-api/streaming).
 </Note>
 
 ## Handle them
@@ -154,8 +154,9 @@ r = requests.post(
     },
 )
 
-if not r.ok:
-    error = r.json()["error"]
+body = r.json()
+if not r.ok or body.get("status") == "failed":
+    error = body["error"]
     if isinstance(error, str):
         raise RuntimeError(f"transport error: {error}")  # flat platform error, e.g. container_unavailable
     code = error["code"]
@@ -182,8 +183,9 @@ const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   }),
 });
 
-if (!res.ok) {
-  const { error } = await res.json();
+const body = await res.json();
+if (!res.ok || body.status === "failed") {
+  const { error } = body;
   if (typeof error === "string") {
     // flat platform error, e.g. "container_unavailable": see the transport table
     throw new Error(`transport error: ${error}`);
@@ -215,13 +217,13 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
 
 <AccordionGroup>
   <Accordion title="insufficient_balance (402): the workspace wallet is empty" icon="wallet">
-    The workspace wallet cannot cover a charge. You see it in three places: at create, when the wallet holds less than one day of the instance's running rate (a check, not a debit; the meter only starts once the instance runs); at `start`, when a `past_due` instance's workspace balance is still negative; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` (\$5 minimum, \$1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
+    The workspace wallet cannot cover a charge. You see it in three places: at create, when the wallet holds less than one day of the instance's running rate (a check, not a debit; the meter only starts once the instance runs); at `start`, when a `past_due` instance's workspace balance is still negative; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. That third case does not reach the Agent API as `insufficient_balance`: the refused LLM call fails the turn (`status: "failed"`, or a `response.failed` event) with the refusal text, which names the workspace balance, in `error.message`. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` (\$5 minimum, \$1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
   </Accordion>
   <Accordion title="instance_budget_exhausted (402): this instance hit its budget" icon="gauge">
-    The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code on Hosting API calls: it surfaces when the agent's managed calls are refused mid-turn.
+    The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code in an API error on either plane: it is what the managed endpoint returns to the agent's own call inside the instance. What you see is the failed turn (`status: "failed"`, or a `response.failed` event); on Hermes its `error.code` is `quota_exhausted`, with a hint naming the fix.
   </Accordion>
   <Accordion title="session_busy (409): one response at a time" icon="clock">
-    A session runs one response at a time. Posting new input while a turn is in flight returns this, usually with the running response's id in `error.response_id`. Three ways out: reattach to the running turn with `GET /v1/responses/{response_id}/stream`, cancel it with `POST /v1/responses/{response_id}/cancel` (best effort; a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. If the field is absent (a rare race, or an older gateway), read `active_response_id` from `GET /v1/sessions/{id}` instead. See [Sessions](/agents-api/sessions).
+    A session runs one response at a time. Posting new input while a turn is in flight returns this, with the running response's id in `error.response_id`. Three ways out: reattach to the running turn with `GET /v1/responses/{response_id}/stream`, cancel it with `POST /v1/responses/{response_id}/cancel` (a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. If the field is absent (an instance still on an older gateway), read `active_response_id` from `GET /v1/sessions/{id}` instead. See [Sessions](/agents-api/sessions).
   </Accordion>
   <Accordion title="The capacity trio: instance_limit_reached, capacity_unavailable, no_capacity" icon="server">
     Three different walls, three different fixes. `instance_limit_reached` (409, create): the workspace is at its instance limit (one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$100, 200 once they total \$250); delete instances you no longer need, or email vishnu@agent37.com to raise the ceiling. `no_capacity` (503, create): no host can fit the requested shape right now; retry with backoff or pick a smaller shape, and a create that fails this way does not keep your money. `capacity_unavailable` (409, start or resize): the host that holds the instance's disk cannot fit it, and no other host has room to take it either (when the home host is full, the platform moves the instance to one with room before it ever fails); retry later. See [Instances](/agents-api/instances).

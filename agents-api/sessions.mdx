@@ -5,7 +5,7 @@ description: "List, read, rename, and delete conversations on an instance."
 
 A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.
 
-The gateway keeps no session index of its own. The agent harness owns both the transcript and the list (Hermes' session store, OpenClaw's history), and the gateway projects them on read. So a session's fields are the harness's own, and a list or read always reflects the live state of that harness.
+The gateway keeps no session index of its own. The agent harness owns both the transcript and the list (Hermes' session store, OpenClaw's history), and the gateway projects them on read. So a list or read always reflects the live state of that harness, projected into one shape so you never branch on the harness.
 
 Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
 
@@ -15,7 +15,7 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 | --- | --- | --- |
 | `GET` | `/v1/sessions` | `200` `{ "agent": "...", "data": [...] }`, the harness's session list, newest first |
 | `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "active_response_id", "history", "context" }`, the conversation's full transcript |
-| `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }`, rename a session (Hermes) |
+| `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }`, rename a session |
 | `DELETE` | `/v1/sessions/{id}` | `200` `{ "id": "...", "deleted": true }` |
 
 <Note>
@@ -24,21 +24,35 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 
 ## Choosing the harness
 
-Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
+Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is a `503` (`agent_unavailable`, or `hermes_not_found` when the missing harness is Hermes). Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
 
 ## The session object
 
-There is no gateway-defined session shape. `GET /v1/sessions` passes each entry through from the harness's own store, native fields untouched, so the exact fields depend on the harness and can evolve with it.
+Every row of `GET /v1/sessions` is the same shape regardless of harness: `{ id, title, last_active, message_count, preview }`. The gateway projects the harness's own store into it on read, so a field the harness doesn't track is `null` rather than missing.
 
 <ResponseField name="id" type="string">
-  The only field the gateway guarantees across harnesses. It is the session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
+  The session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
 </ResponseField>
 
-Every row is the same shape regardless of harness: `{ id, title, last_active, message_count, preview }`. `title` is the harness's own editable title (what [rename](#rename-a-session) writes), `last_active` is epoch milliseconds, and fields a harness doesn't track are `null` (OpenClaw tracks no message count or preview).
+<ResponseField name="title" type="string | null">
+  The harness's own editable title, exactly what [rename](#rename-a-session) writes. Hermes generates one on its own shortly after the first completed exchange, so Hermes rows usually carry a title without a rename; an OpenClaw session stays `null` until a rename sets its label.
+</ResponseField>
+
+<ResponseField name="last_active" type="number | null">
+  When the session was last active, in epoch milliseconds. `null` when the harness reports no timestamp.
+</ResponseField>
+
+<ResponseField name="message_count" type="number | null">
+  How many messages the session holds. Hermes reports it; OpenClaw does not track it and returns `null`.
+</ResponseField>
+
+<ResponseField name="preview" type="string | null">
+  The opening of the session's first user message, for list display. Hermes reports it; OpenClaw does not track it and returns `null`.
+</ResponseField>
 
 ## List sessions
 
-`GET /v1/sessions` returns the harness's sessions, newest first (Hermes orders by most recent activity), wrapped in `{ "agent": "...", "data": [...] }`. The `agent` names which harness the list is for. Pass `?agent=hermes` or `?agent=openclaw` to pick a harness; omit it for the instance default. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar. A harness without a list API returns `data: []`.
+`GET /v1/sessions` returns the harness's sessions, newest first, wrapped in `{ "agent": "...", "data": [...] }`. The list is capped: Hermes returns up to 100 sessions, most recent activity first. OpenClaw returns only the sessions started through this API, drawn from its 1,000 most recently active sessions of any kind. Conversations from OpenClaw's own surfaces, such as its Control UI or a connected channel, count toward that window but are not listed and cannot be read by id through this API. The `agent` names which harness the list is for. Pass `?agent=hermes` or `?agent=openclaw` to pick a harness; omit it for the instance default. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar. A harness without a list API returns `data: []`.
 
 <CodeGroup>
 ```bash curl
@@ -83,11 +97,11 @@ const { data: sessions } = await (await fetch(
 `GET /v1/sessions/{id}` returns `{ "id", "agent", "active_response_id", "history", "context" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404`, because the harness owns whether a session exists. Pass `?agent=` to pick the harness.
 
 <ResponseField name="active_response_id" type="string | null">
-  The id of the response currently running on the session, or `null` when it is idle. The harness writes a turn's messages at turn end, so while this is set the running turn is normally **not** in `history` yet. Follow it live with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop). This is how a client that lost its state (page reload, new device) rediscovers a running turn and reattaches. Two timing edges: right at turn end, one read can briefly show the finished turn in `history` and its id still here; reattaching is still correct, the replay just ends immediately. And once it reads `null` the transcript is complete, with one exception: a cancelled OpenClaw turn is persisted by OpenClaw on its own schedule and can surface in `history` shortly after.
+  The id of the response currently running on the session, or `null` when it is idle. The harness writes a turn's messages at turn end, so while this is set the running turn is normally **not** in `history` yet. Follow it live with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop). This is how a client that lost its state (page reload, new device) rediscovers a running turn and reattaches. Two timing edges: right at turn end, one read can briefly show the finished turn in `history` and its id still here; reattaching is still correct, the replay just ends immediately. And once it reads `null` the transcript is complete.
 </ResponseField>
 
 <ResponseField name="context" type="object | null">
-  The session's last reported context window: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` until a turn reports one.
+  The session's last reported context window: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` until a turn reports one. The gateway keeps this value in memory rather than in the harness's store, for at most 1,000 sessions, so it is `null` again after a gateway restart (or once 1,000 other sessions have reported since) until the next turn reports one.
 </ResponseField>
 
 Each entry in `history` is a message:
@@ -154,10 +168,10 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
 `PATCH /v1/sessions/{id}` sets a session's title, writing it straight into the harness's own store, and returns `{ "id", "agent", "renamed" }`. `renamed` is `false` when no session matched the id. Send the new title in the body:
 
 <ParamField body="title" type="string" required>
-  The new title. Cannot be empty. Hermes enforces a unique, length-capped title: a title already used by another session returns `409 title_conflict`, and an over-long one returns `400 validation_error`.
+  The new title. Cannot be empty. Titles are unique on both harnesses: a title already used by another session returns `409 title_conflict`. Hermes also caps the length; an over-long title returns `400 validation_error`.
 </ParamField>
 
-Rename is only available on harnesses that natively store an editable title. Hermes supports it; a harness that does not returns `405 rename_unsupported`. Pass `?agent=` to pick the harness.
+Both harnesses support rename: Hermes writes the title into its session database; OpenClaw stores it as the session's label. A harness with no editable title would return `405 rename_unsupported`; none of the shipped harnesses does. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
 ```bash curl
@@ -174,7 +188,7 @@ curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e
 
 ## Delete a session
 
-`DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. A harness with no delete route (OpenClaw) always returns `deleted: false` and keeps its copy. Pass `?agent=` to pick the harness.
+`DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. On Hermes the transcript is removed from its session database; on OpenClaw the session leaves its list and OpenClaw archives the transcript off its active path. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
 ```bash curl
@@ -188,7 +202,7 @@ curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8
 </CodeGroup>
 
 <Warning>
-  Deleting a session removes the conversation and its history from the harness, but leaves the instance (its files, memory, and connected accounts) untouched. The per-turn response receipts are in-memory and short-lived; they expire on their own.
+  Deleting a session removes the conversation and its history from the harness and forgets the session's `context`, but leaves the instance (its files, memory, and connected accounts) untouched. The per-turn response receipts are in-memory and short-lived; they expire on their own.
 </Warning>
 
 ## One turn at a time

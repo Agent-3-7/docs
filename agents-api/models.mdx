@@ -7,7 +7,9 @@ The model is the LLM a turn runs on; the agent harness is the software driving i
 
 ## List models
 
-`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=`, `hermes` or `openclaw`, and the response echoes which `agent` answered. An unknown `?agent=` value is `400 validation_error`, omitting it (or sending it empty) targets the instance default, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=`, `hermes` or `openclaw`, and the response echoes which `agent` answered. An unknown `?agent=` value is `400 validation_error`, omitting it (or sending it empty) targets the instance default, and targeting a harness the instance was not provisioned with is a `503` (`agent_unavailable`, or `hermes_not_found` when the missing harness is Hermes). On Hermes the result is cached for about 60 seconds (the cache also clears when the Hermes config changes), so a newly available model can take up to a minute to appear. On OpenClaw the list is read live on every call.
+
+What you get depends on the harness. Hermes lists the models of each provider it holds credentials for, plus custom providers, model aliases, and its configured default. OpenClaw lists its own configured LLM catalog as `provider/model` ids, with `owned_by` set to the provider; a provider whose OAuth login has gone idle stays listed, because OpenClaw refreshes it on the next turn. OpenClaw reports no default: `default_model` is `null`, `default_provider` is `openclaw`, and every entry has `is_default: false`.
 
 <ResponseField name="object" type="string">
   Always `"list"`.
@@ -18,23 +20,23 @@ The model is the LLM a turn runs on; the agent harness is the software driving i
 </ResponseField>
 
 <ResponseField name="default_model" type="string | null">
-  The model used when a turn does not name one.
+  The model used when a turn does not name one. Hermes reports its configured default; OpenClaw keeps its default in its own config and reports `null`.
 </ResponseField>
 
 <ResponseField name="default_provider" type="string | null">
-  The provider of the default model.
+  The provider of the default model on Hermes. On OpenClaw this is the literal string `openclaw`; read each model's provider from its `owned_by`.
 </ResponseField>
 
 <ResponseField name="data" type="array">
   One entry per model. Each is an OpenAI-compatible model object plus a few additive fields a UI can group and label on:
 
-  - `id`: the model id. Pass it as `model` on a turn.
+  - `id`: the model id. Pass it as `model` on a turn. The shape depends on the harness: on Hermes a model of the `default_provider` (or a `custom` entry) is the bare id and a model of any other configured provider is `@provider:model`; on OpenClaw every id is `provider/model`.
   - `object`: always `"model"`.
   - `created`: Unix seconds. We don't track per-model creation time, so this is a stable placeholder (`0`).
-  - `owned_by`: the upstream provider, e.g. `nous` or `anthropic`.
-  - `label`: a human-readable name.
-  - `source`: where the entry comes from, one of `current`, `catalog`, `custom`, or `alias`.
-  - `is_default`: `true` for the default model.
+  - `owned_by`: the upstream provider, e.g. `nous` or `anthropic`. Hermes alias entries (`source: "alias"`) report `aliases` here instead of a provider.
+  - `label`: a display name. OpenClaw returns the catalog's alias or name; Hermes returns the upstream model id (an alias entry reads `alias -> target`).
+  - `source`: where the entry comes from. `catalog` is a model of a built-in provider, `custom` a model of a user-defined custom provider, `current` the configured default when no listed provider contains it, and `alias` an entry from Hermes' `model_aliases`. OpenClaw entries are always `catalog`.
+  - `is_default`: `true` for the default model. Always `false` on OpenClaw, where the list carries no default.
 </ResponseField>
 
 <CodeGroup>
@@ -71,16 +73,16 @@ const models = await (await fetch(
       "object": "model",
       "created": 0,
       "owned_by": "anthropic",
-      "label": "Claude Sonnet 4.5",
+      "label": "claude-sonnet-4-5",
       "source": "catalog",
       "is_default": true
     },
     {
-      "id": "gpt-5.2",
+      "id": "@openai:gpt-5.2",
       "object": "model",
       "created": 0,
       "owned_by": "openai",
-      "label": "GPT-5.2",
+      "label": "gpt-5.2",
       "source": "catalog",
       "is_default": false
     }
@@ -91,4 +93,7 @@ const models = await (await fetch(
 
 ## Choosing a model per turn
 
-`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat): omit them to keep the session's current model, or send them to switch. A continuation that sets them updates the session's model for the turns that follow.
+`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat), and the response echoes what you sent (`null` when you sent nothing). What they do depends on the harness.
+
+- Hermes: the turn runs on the `model` and `provider` it names, or on the instance default (`default_model` and `default_provider` above) when it names none. A continuation does not inherit the previous turn's choice, so send them on every turn that should not run on the default.
+- OpenClaw: a turn that names a `model` (a `provider/model` id from the list) sets it on the session, and later turns that omit `model` keep running on it; a turn that omits `model` never clears it. `provider` is ignored, since the provider is part of the model id.
