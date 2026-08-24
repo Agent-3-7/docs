@@ -3,7 +3,7 @@ title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
 ---
 
-An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later. Poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
+An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` (`ok` alone only means the gateway is up; see [Health & version](/agents-api/health)), then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
 
 Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances you can run at once is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
 

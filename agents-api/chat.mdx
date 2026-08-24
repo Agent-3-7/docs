@@ -28,15 +28,15 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="model" type="string">
-  The LLM to run this turn on. Omit it to use the session's current model (the instance default on a new session). List what the instance can run with `GET /v1/models`; see [Models](/agents-api/models).
+  The LLM to run this turn on, an id from `GET /v1/models` (on OpenClaw the ids are `provider/model`). On Hermes it applies to this turn only: omit it and the turn runs on the instance's default model, whatever earlier turns chose. On OpenClaw a named model is written to the session and sticks for the turns that follow; a turn that omits it leaves the session's model as is. A `model` OpenClaw does not allow (an id outside `GET /v1/models`) never starts the turn: the response settles with `status: "failed"` and `error.code` `agent_error`, with OpenClaw's reason in `message`, and the session keeps its previous model. See [Models](/agents-api/models).
 </ParamField>
 
 <ParamField body="provider" type="string">
-  The model's provider, for example `anthropic`. Both `model` and `provider` are set per turn, and sending them on a continuation updates the session's stored pair for the turns that follow.
+  The model's provider, for example `anthropic`. Hermes only, and per turn like `model`: it tells Hermes which configured provider to run the named model on. OpenClaw ignores it (the response still echoes it); there the provider is the prefix of the `provider/model` id you pass as `model`.
 </ParamField>
 
 <ParamField body="reasoning_effort" type="string">
-  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
+  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`. It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`.
 </ParamField>
 
 <ParamField body="metadata" type="object">
@@ -44,7 +44,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which agent harness runs the turn, `hermes` or `openclaw`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with returns `503 agent_unavailable`.
+  Which agent harness runs the turn, `hermes` or `openclaw`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable` (`hermes_not_found` when the missing harness is Hermes).
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
@@ -76,11 +76,11 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </ResponseField>
 
 <ResponseField name="model" type="string | null">
-  The model the turn ran on, `null` when none was set.
+  The `model` you sent on this request, echoed back. `null` when you omitted it: the turn still ran on the harness's default or session model, but the gateway does not report which model the harness resolved.
 </ResponseField>
 
 <ResponseField name="provider" type="string | null">
-  The model's provider, `null` when none was set.
+  The `provider` you sent on this request, echoed back; `null` when you omitted it.
 </ResponseField>
 
 <ResponseField name="output_text" type="string">
@@ -92,7 +92,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </ResponseField>
 
 <ResponseField name="context" type="object | null">
-  The session's context window as of this turn: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` when the harness didn't report a measurement.
+  The session's context window as of this turn: `{ used_tokens, window_tokens }`, the tokens occupying the model's window against the window's size. `null` when the harness didn't report a measurement; a cancelled turn reports none on either harness. Hermes reports it on every completed turn. OpenClaw reports none, so the gateway derives it from the turn: `used_tokens` is the turn's token total (input, output, and cache tokens) and `window_tokens` is the model's context window from OpenClaw's model catalog, or `128000` (OpenClaw's own default budget) when the catalog lists no window for the model. On OpenClaw it is `null` when the turn reported no usage, no model, a zero token total, or a model that is not in the catalog.
 </ResponseField>
 
 <ResponseField name="error" type="object | null">
@@ -275,7 +275,7 @@ Every response has an id you can use after the call returns.
 
 `GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer, including after the turn has finished, while the response is still retained. See [Streaming](/agents-api/streaming) for the replay window. Lost the id (page reload, new device)? [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) returns the running response as `active_response_id`.
 
-`POST /v1/responses/{id}/cancel` takes no body and stops a running turn, best effort. It returns 200 with the current response object. Cancelling a finished response is a no-op that returns its terminal state, still 200.
+`POST /v1/responses/{id}/cancel` takes no body and stops a running turn (on OpenClaw it aborts the run inside OpenClaw). It returns 200 with the current response object as soon as the stop is requested, not once the agent has actually stopped, so the body normally still reads `status: "in_progress"`; the response settles to `cancelled` when the turn unwinds. To see it end, read `GET /v1/responses/{id}/stream`: a cancelled turn still closes with `response.completed`, carrying the `output_text` accumulated so far. Cancelling a finished response is a no-op that returns its terminal state, still 200.
 
 <Warning>
   Cancel does not rewind. Whatever the agent has already done (files written, emails sent, tools called) is not undone. The response ends with `status: "cancelled"`.
@@ -290,4 +290,4 @@ A response moves from `in_progress` to exactly one terminal status.
 | `in_progress` | The turn is running. |
 | `completed` | The turn finished and `output_text` holds the answer. |
 | `failed` | The turn ended on an error; `error` says why. |
-| `cancelled` | You stopped the turn with `cancel`. |
+| `cancelled` | You stopped the turn with `cancel`, or (OpenClaw only) the input was one of OpenClaw's own stop commands such as `stop` or `exit`, so no run started. |
