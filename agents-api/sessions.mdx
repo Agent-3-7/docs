@@ -24,7 +24,7 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 
 ## Choosing the harness
 
-Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is a `503` (`agent_unavailable`, or `hermes_not_found` when the missing harness is Hermes). Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
+Every read on this page takes an optional `?agent=` query, `hermes` or `openclaw`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
 
 ## The session object
 
