@@ -36,7 +36,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="reasoning_effort" type="string">
-  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`. It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`.
+  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `max` is the strongest plain thinking level; `ultra` is the harness's own Ultra mode, top thinking plus its agentic orchestration (on OpenClaw it also turns on proactive subagent orchestration). It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`. `max` and `ultra` need gateway `0.10.0`: older instances reject them with `validation_error` until [updated](/agents-api/instances#update).
 </ParamField>
 
 <ParamField body="metadata" type="object">
