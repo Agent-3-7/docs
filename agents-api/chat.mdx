@@ -44,7 +44,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which agent harness runs the turn, `hermes` or `openclaw`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable` (`hermes_not_found` when the missing harness is Hermes).
+  Which agent harness runs the turn, `hermes` or `openclaw`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable`.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
