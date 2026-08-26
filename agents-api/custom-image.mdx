@@ -157,6 +157,35 @@ shortest path to a running agent, costs no setup, and meters to the instance
 the reference, and [pi-agent-image](https://github.com/agent37-platform/pi-agent-image) is a
 complete image that does it in two config files with no credentials in either.
 
+<Warning>
+  **Moving an existing instance onto your image? Its config already holds a dead token.** An
+  instance that previously ran a stock template (`agent37-hermes` and friends) has managed
+  entries, the Composio one included, written into its persistent `~/.hermes/config.yaml` with
+  the token as a literal. `AGENT37_MANAGED_TOKEN` is [reissued on every
+  restart](/agents-api/managed-services#wiring-an-agent-to-both), stock images rewrite the file
+  each boot, and your image is now the one that has to: otherwise those entries start returning
+  `401` at the first restart. Rewrite them from env on **every** boot, unconditionally:
+
+  ```bash entrypoint.sh
+  python3 - <<'PY'
+  import os, yaml
+  path = os.path.expanduser("~/.hermes/config.yaml")
+  token = os.environ.get("AGENT37_MANAGED_TOKEN")
+  url = os.environ.get("AGENT37_COMPOSIO_MCP_URL")
+  try:
+      cfg = yaml.safe_load(open(path)) or {}
+  except FileNotFoundError:
+      cfg = {}
+  if token and url and "composio" in cfg.get("mcp_servers", {}):
+      cfg["mcp_servers"]["composio"] = {"url": url, "headers": {"Authorization": f"Bearer {token}"}}
+      yaml.safe_dump(cfg, open(path, "w"))
+  PY
+  ```
+
+  The same applies to any other place a literal token landed, such as a `custom_providers`
+  entry pointing at `AGENT37_LLM_PROXY_URL`.
+</Warning>
+
 ### Bring your own model instead
 
 To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint, your own proxy or a provider directly, by writing `~/.hermes/config.yaml` on the instance:
