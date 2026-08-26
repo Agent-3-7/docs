@@ -61,6 +61,27 @@ Set `"stream": true` to receive the turn as Server-Sent Events instead of one JS
 
 `GET /v1/models` on the instance lists five aliases: `default`, `fable`, `opus`, `sonnet`, and `haiku`, all with provider `anthropic`. Pass one as `model` on a turn. Usage bills to your Anthropic account, not your Agent37 wallet. See [Models](/agents-api/models).
 
+## Bring your own model
+
+Claude Code can run on a different model provider entirely: point it at any Anthropic-compatible Messages endpoint with two more `env` entries on the create call. With OpenRouter:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-claude-code",
+    "env": {
+      "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+      "ANTHROPIC_AUTH_TOKEN": "<your OpenRouter key>"
+    }
+  }'
+```
+
+No Anthropic account is needed: model usage bills the key behind `ANTHROPIC_AUTH_TOKEN`, and health reports healthy once the instance is up. To pin what each [model alias](#models) runs, add role variables as provider slugs: `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, and `ANTHROPIC_DEFAULT_FABLE_MODEL` (for example `"ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5"`, so a turn with `"model": "opus"` runs that slug). Claude Code is built for Anthropic models; pointing a role at another family can mishandle the tool calls it edits files with.
+
+Runnable version: [claude-code-byo-model](https://github.com/agent37-platform/examples/tree/main/claude-code-byo-model) in the examples repo.
+
 ## Connect apps
 
 [App integrations](/agents-api/integrations) work here like on every system template: drive the `/v1/integrations` endpoints to connect your users' Gmail, Slack, Notion, and hundreds of other apps, and the platform registers its Composio MCP server with Claude Code automatically.
