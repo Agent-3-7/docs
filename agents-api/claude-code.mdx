@@ -1,0 +1,83 @@
+---
+title: "Host Claude Code"
+description: "Run Anthropic's Claude Code on its own always-on instance, signed in to your own Anthropic account."
+---
+
+The `agent37-claude-code` [template](/agents-api/templates) runs Claude Code, Anthropic's coding agent, on an Agent37 instance: an always-on computer with the same chat API, sessions, files, and URLs as every other template. The image is lean, with no browser and no desktop. Claude Code runs on **your own Anthropic account**: Agent37 never supplies or bills Claude model usage, and there is no managed-model option on this template, so connect your account before the first chat turn.
+
+## Create the instance
+
+One call to the hosting API at `https://api.agent37.com`:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-claude-code" }'
+```
+
+The `201` response carries the instance id and its URL, `https://{instanceId}.agent37.app`, which routes to the gateway on port `3737`. The terminal is on port `7681` and the file browser on `8080`, each at `https://{instanceId}-{port}.agent37.app`; see [Instance and preview URLs](/agents-api/urls).
+
+## Connect your Claude account
+
+Three ways to connect. Until one of them is done, a chat turn fails with `auth_error`, and `GET /v1/health?agent=claude-code` on the instance URL reports `"healthy": false`.
+
+**Log in from the instance terminal.** Mint a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for the terminal port:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 7681 }'
+```
+
+Open the returned `url` in a browser and run `claude auth login` in the shell. The login persists on the instance volume, so it survives restarts and updates.
+
+**Set `CLAUDE_CODE_OAUTH_TOKEN`.** The way to go when your app provisions instances headlessly. Generate the token on your own machine with `claude setup-token`, then pass it as [instance env](/agents-api/instances#environment-variables) on the create call:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-claude-code", "env": { "CLAUDE_CODE_OAUTH_TOKEN": "..." } }'
+```
+
+**Set `ANTHROPIC_API_KEY`.** Same shape: pass an Anthropic API key as `env` on create instead.
+
+## Send the first message
+
+Chat is the instance URL plus a path, with the same `sk_live_` key sent as the `X-Agent37-Key` header. `claude-code` is the template's default agent, so there is no `agent` field to pass:
+
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/responses \
+  -H "X-Agent37-Key: sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "input": "Clone github.com/expressjs/express and summarize how routing works." }'
+```
+
+Set `"stream": true` to receive the turn as Server-Sent Events instead of one JSON body, and reuse the returned `session_id` to continue the thread. See [Send a message](/agents-api/chat) and [Streaming](/agents-api/streaming).
+
+## Models
+
+`GET /v1/models` on the instance lists five aliases: `default`, `fable`, `opus`, `sonnet`, and `haiku`, all with provider `anthropic`. Pass one as `model` on a turn. Usage bills to your Anthropic account, not your Agent37 wallet. See [Models](/agents-api/models).
+
+## Connect apps
+
+[App integrations](/agents-api/integrations) work here like on every system template: drive the `/v1/integrations` endpoints to connect your users' Gmail, Slack, Notion, and hundreds of other apps, and the platform registers its Composio MCP server with Claude Code automatically.
+
+## Custom image
+
+To add your own tools, build on the clean base image, which ships Claude Code and the gateway with no managed integrations, the same pattern as `hermes-base`:
+
+```dockerfile
+FROM ghcr.io/agent37-platform/claude-code-base:latest
+```
+
+See [Build a custom image](/agents-api/custom-image).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| A turn fails with `auth_error` | No Claude account is connected yet: connect one of the three ways above. |
+| `GET /v1/health?agent=claude-code` reports `"healthy": false` | Same cause: the harness reports unhealthy until an account is connected. `ok: true` alone only means the gateway is up. |

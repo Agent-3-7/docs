@@ -35,7 +35,7 @@ The API reference is **hand-authored MDX**; there is no OpenAPI spec to regenera
 
 Platform images publish weekly to GHCR (immutable dated tags like `2026.07.02b`, never republished, plus a moving `latest`). The docs must never require a weekly edit to stay correct:
 
-- **Never hardcode a dated tag as guidance.** The two non-rotting sources for "the current version" are the tag in a system template's `image_ref` on `GET /v1/templates`, and the GHCR package pages. Link those instead (`https://github.com/orgs/agent37-platform/packages/container/package/<hermes|hermes-base|hermes-small|openclaw|openclaw-base>`).
+- **Never hardcode a dated tag as guidance.** The two non-rotting sources for "the current version" are the tag in a system template's `image_ref` on `GET /v1/templates`, and the GHCR package pages. Link those instead (`https://github.com/orgs/agent37-platform/packages/container/package/<hermes|hermes-base|hermes-small|openclaw|openclaw-base|claude-code|claude-code-base>`).
 - **Dockerfile `FROM` examples use `:latest`**, with the one mental model stated nearby: a built image freezes its base at build time, the FROM tag only matters at rebuild, pin a dated tag for reproducible rebuilds.
 - **Runnable request examples use `<tag>` placeholders** (`agent37-hermes@<tag>`, `ghcr.io/you/my-agent:<tag>`). A copy-pasted placeholder fails loudly; a copy-pasted old tag silently pins an ancient release.
 - **JSON response examples show a real dated tag for realism; it is illustrative.** An old immutable tag is never wrong, just old: normalize opportunistically when editing a page, never as a release chore. Keep one consistent tag across all response examples when you do touch them.
@@ -46,7 +46,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - **Agent37 Cloud** is the product. **Workspace** is the account/billing unit; it owns API keys and one **wallet**.
 - **Instance** is an agent's always-on computer at `https://{instanceId}.agent37.app`. **Session** is one conversation on an instance. **Response** is one agentic turn within a session.
-- **Agent** vs **model**: the agent is the software running on the instance (Hermes and OpenClaw today; Claude Code and Codex coming soon); the model is the LLM chosen per turn (`model` + `provider`).
+- **Agent** vs **model**: the agent is the software running on the instance (Hermes, OpenClaw, and Claude Code today; Codex coming soon); the model is the LLM chosen per turn (`model` + `provider`).
 - **Template** names the image an instance runs and can set its `default_port`; every other port URL is derivable and needs no declaration. **Gateway** serves the Agent API inside the instance.
 - **Instance URL** is an instance's base address, `https://{instanceId}.agent37.app` (the default port, where the agent's API lives). **Preview URL** is a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** is a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
 - Billing: **wallet** (workspace money), **budget** (per-instance managed-spend cap plus **top-up** headroom), **managed services** (LLM / search / Composio through built-in credentials), **micros** (USD × 1,000,000), **past due** (renewal failed; instance force-stopped until a funded start).
@@ -56,7 +56,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
 - The OpenClaw setup guides are **gone from this repo** and are not coming back. All 18 hidden pages (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) moved to the blog in July 2026: they were B2C dashboard how-tos making up 22% of `llms-full.txt`, diluting the B2B spec coding agents consume. They live at `www.agent37.com/blog/*` now, and the `website` repo's `vercel.json` redirects every old `/docs/*` URL there. Don't recreate them here, and don't add a redirect for them in `docs.json` (the website handles it).
-- The system template catalog has three entries: `agent37-hermes`, `agent37-hermes-small`, and `agent37-openclaw`. Claude Code and Codex are coming soon; mention them as coming, never as available.
+- The system template catalog has four entries: `agent37-hermes`, `agent37-hermes-small`, `agent37-openclaw`, and `agent37-claude-code`. Claude Code is live and documented as available. Codex is coming soon; mention it as coming, never as available.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
 ## Style
