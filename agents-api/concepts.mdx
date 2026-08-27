@@ -38,7 +38,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 | **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live, or reconnect to its stream by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes, OpenClaw, and Claude Code are the live agents today; Codex is coming soon), and the *model* is the LLM the agent thinks with, set as `model` on a turn (plus `provider` on Hermes; see [Models](/agents-api/models) for how each harness applies it).
+  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes, OpenClaw, Claude Code, and Codex are the live agents today), and the *model* is the LLM the agent thinks with, set as `model` on a turn (plus `provider` on Hermes; see [Models](/agents-api/models) for how each harness applies it).
 </Info>
 
 ### How they fit together
@@ -62,7 +62,7 @@ See [Instance and preview URLs](/agents-api/urls) for how routing and authentica
 Your workspace has exactly one pot of money: the wallet, funded by top-up from the [billing dashboard](https://www.agent37.com/dashboard/cloud/billing). Two things draw on it:
 
 - **Compute.** Each instance is metered per minute: the full rate while running, disk alone while stopped or sleeping. See [Billing](/agents-api/billing).
-- **Managed usage.** Every instance gets managed LLM, Brave search, and Composio credentials, metered at cost as the agent uses them. They arrive as environment variables inside the container, so a [custom image](/agents-api/custom-image) can use them too; see [Managed services in your image](/agents-api/managed-services). Model usage on `agent37-claude-code` is the exception: [Claude Code](/agents-api/claude-code) runs on your own Anthropic account, so Agent37 never supplies or bills its model spend.
+- **Managed usage.** Every instance gets managed LLM, Brave search, and Composio credentials, metered at cost as the agent uses them. They arrive as environment variables inside the container, so a [custom image](/agents-api/custom-image) can use them too; see [Managed services in your image](/agents-api/managed-services). Model usage on `agent37-claude-code` and `agent37-codex` is the exception: [Claude Code](/agents-api/claude-code) runs on your own Anthropic account and [Codex](/agents-api/codex) on your own OpenAI account, so Agent37 never supplies or bills their model spend.
 
 Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds how much managed spend an instance may pull from the wallet: a monthly cap that resets each UTC month (default \$0) plus one-time top-up headroom. Raising a cap moves no funds; an instance with a generous cap and an empty wallet still gets refused.
 
