@@ -175,7 +175,7 @@ The delete acts once: repeating it returns `404 not_found`, and another workspac
 
 A registered key opens **every** instance your workspace owns, current and future. There are no per-instance keys.
 
-Key changes reach running instances automatically, within about 25 seconds of the API call. An instance you create after registering a key has it from the moment it boots, with nothing to wait for.
+Key changes reach running instances automatically, within about two minutes of the API call. An instance you create after registering a key has it from the moment it boots, with nothing to wait for.
 
 ## Copy files
 
@@ -204,7 +204,7 @@ Two ways, neither on a timer. There are no TTLs and no expiring sessions, so acc
 - **Delete the SSH key** (`DELETE /v1/ssh-keys/{id}`) to stop that keypair from logging in anywhere in the workspace.
 - **Revoke the `sk_live_` API key** to stop every SSH client configured with it, whatever keypair it holds.
 
-Revocation reaches running instances within about 25 seconds. It stops new logins; a session that is already open keeps running until it exits, so [restart](/agents-api/instances#restart) or [stop](/agents-api/instances#stop) the instance if you need live sessions cut immediately.
+Revocation reaches running instances within about two minutes. It stops new logins; a session that is already open keeps running until it exits, so [restart](/agents-api/instances#restart) or [stop](/agents-api/instances#stop) the instance if you need live sessions cut immediately.
 
 ## Rules and limits
 
