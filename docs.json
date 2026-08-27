@@ -30,6 +30,7 @@
           "agents-api/byo-model",
           "agents-api/composio",
           "agents-api/claude-code",
+          "agents-api/codex",
           "agents-api/custom-image",
           "agents-api/managed-services",
           "agents-api/hermes-webhooks"

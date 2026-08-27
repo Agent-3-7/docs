@@ -52,6 +52,16 @@ Same shape as Hermes: chat is the bare URL plus a path, and the dashboard, termi
 
 The image is lean, with no browser and no desktop, so there is no dashboard port. The terminal on `7681` is where you run `claude auth login`; see [Host Claude Code](/agents-api/claude-code).
 
+### What `agent37-codex` serves
+
+| Port | URL | Serves |
+| --- | --- | --- |
+| `3737` | `https://ab12cd34ef.agent37.app` (default) | The gateway: [chat](/agents-api/chat) at `/v1/responses`, plus sessions, [files](/agents-api/files), models, health |
+| `7681` | `https://ab12cd34ef-7681.agent37.app` | A shell in the container (browser) |
+| `8080` | `https://ab12cd34ef-8080.agent37.app` | File browser for the workspace (browser) |
+
+The image is lean, with no browser and no desktop, so there is no dashboard port. The terminal on `7681` is where you run `codex login --device-auth`; see [Host Codex](/agents-api/codex).
+
 ## Authentication
 
 A port accepts either credential, so you can reach the same port two ways:
