@@ -114,7 +114,7 @@ The meter is post-paid within the hour, so a busy instance can carry the balance
 }
 ```
 
-Topping up reactivates immediately: the flag clears, the meter re-anchors at the top-up (the suspended gap is never back-billed), and the next request to each instance's URL wakes it. A suspension discards no data, but the force-sleep takes no checkpoint, so the first wake after one boots fresh, like `start` after `stop`.
+Topping up reactivates immediately: the flag clears, the meter re-anchors at the top-up (the suspended gap is never back-billed), and the next request to each instance's URL wakes it. A suspension discards no data, but the force-sleep takes no checkpoint, so the first wake after one boots fresh, like `start` after `stop`. An instance left suspended for 30 days is permanently deleted.
 
 <Tip>
   Branch on the error `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
