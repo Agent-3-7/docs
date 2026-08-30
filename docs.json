@@ -31,6 +31,7 @@
           "agents-api/composio",
           "agents-api/claude-code",
           "agents-api/codex",
+          "agents-api/grok",
           "agents-api/opencode",
           "agents-api/custom-image",
           "agents-api/managed-services",

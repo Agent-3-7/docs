@@ -135,7 +135,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 </Note>
 
 <Note>
-  The BYO-account harnesses signal a missing account with `auth_error`. Until an account is connected, a turn comes back `status: "failed"` with `error.code` `auth_error` and a `hint`, and `GET /v1/health` reports `"healthy": false`. On [Claude Code](/agents-api/claude-code#connect-your-claude-account) the hint says to connect a Claude account; on [Codex](/agents-api/codex#connect-your-openai-account) it says to run `codex login --device-auth` or set `OPENAI_API_KEY`.
+  The BYO-account harnesses signal a missing account with `auth_error`. Until an account is connected, a turn comes back `status: "failed"` with `error.code` `auth_error` and a `hint`, and `GET /v1/health` reports `"healthy": false`. On [Claude Code](/agents-api/claude-code#connect-your-claude-account) the hint says to connect a Claude account; on [Codex](/agents-api/codex#connect-your-openai-account) it says to run `codex login --device-auth` or set `OPENAI_API_KEY`; on [Grok](/agents-api/grok) it says to set `XAI_API_KEY` or run `grok login --device-code`.
 </Note>
 
 ## Handle them
