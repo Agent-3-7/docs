@@ -9,7 +9,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 
 ## Create an instance
 
-`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB, dedicated.
+`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB.
 
 <ParamField body="template" type="string" default="agent37-hermes">
   A template name. `agent37-hermes` (full Hermes, with browser and desktop) is the default; `agent37-hermes-small` (the same agent on a lean image, no browser or desktop), `agent37-openclaw` (OpenClaw, with a headless browser), `agent37-claude-code` ([Claude Code](/agents-api/claude-code), which needs your own Anthropic account connected before chat turns work), `agent37-codex` ([Codex](/agents-api/codex), which needs your own OpenAI account connected before chat turns work), and `agent37-opencode` ([OpenCode](/agents-api/opencode), which runs on the managed model out of the box) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
@@ -19,8 +19,8 @@ Creating an instance requires one day of compute at its running rate in your wor
   The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. Every template offers the same three shapes below. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, or 12 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
-<ParamField body="type" type="string" default="dedicated">
-  `dedicated` reserves the instance's whole shape around the clock. `shared` bills the shape's monthly average instead and is enabled per workspace: until yours is, create returns `403 shared_unavailable` with a link to set it up. Start dedicated; reach for `shared` to optimize cost. See [Dedicated and shared instances](/agents-api/billing#dedicated-and-shared-instances).
+<ParamField body="type" type="string" default="default">
+  `default` reserves the instance's whole shape around the clock. `shared` bills the shape's monthly average instead and is enabled per workspace: until yours is, create returns `403 shared_unavailable` with a link to set it up. Start with the default; reach for `shared` to optimize cost. See [Default and shared instances](/agents-api/billing#default-and-shared-instances).
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -63,7 +63,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 | 4 | 8 GB | 2-20 GB | \$9.34 per month |
 | 8 | 16 GB | 2-40 GB | \$18.68 per month |
 
-Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are dedicated prices; the cost-optimized [`shared`](/agents-api/billing#dedicated-and-shared-instances) type bills the shape's monthly average instead. The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
+Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are the default type's flat prices; the cost-optimized [`shared`](/agents-api/billing#default-and-shared-instances) type bills the shape's monthly average instead. The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
 
 ### Example
 
