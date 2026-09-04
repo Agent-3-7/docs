@@ -14,7 +14,7 @@ The command runs through `sh -c` as the image's default user, on the same box th
 </ParamField>
 
 <Note>
-  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`), and it does not wake a `sleeping` instance: [start](/agents-api/instances#start) it, or hit one of its URLs, first. If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
+  A `running` instance runs the command right away. A `sleeping` instance is woken first, the same way a request to one of its URLs or an explicit [start](/agents-api/instances#start) wakes it, so the first call after a sleep takes a few seconds longer; a `409 try_again` means a sleep checkpoint was in flight, retry in a few seconds. Any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`. Every exec counts as [activity](/agents-api/instances#auto-sleep), so an instance you drive only through exec stays up while commands keep coming.
 </Note>
 
 ## Response
