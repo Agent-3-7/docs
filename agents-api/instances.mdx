@@ -441,11 +441,11 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 
 ## Auto-sleep
 
-An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs; a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
+An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
 
 Sleeping carries no price premium: awake minutes bill the ordinary compute rate, the same as an always-on instance, and asleep time bills disk alone. A mostly-idle instance therefore costs a fraction of the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, versus \$4.76 always-on. It is worth turning on for anything that is idle most of the day.
 
-Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start); for a private sandbox with no ports, which receives no requests, that is the only wake path. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start) or a command sent through [exec](/agents-api/exec); for a private sandbox with no ports, which receives no requests, those are the only wake paths. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
 
 While asleep:
 
@@ -467,7 +467,7 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
 | `updating` | An update or resize is in progress. |
-| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs, or an explicit `start`, wakes it. Bills disk only. |
+| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs, an explicit `start`, or an `exec` wakes it. Bills disk only. |
 | `waking` | A wake is in progress on the slower fallback path; the held request completes when it finishes. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
